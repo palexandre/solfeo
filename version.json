@@ -1,0 +1,4 @@
+---
+layout: null
+---
+{"fecha": "{{ site.time | date: '%Y.%m.%d %H:%M' }}", "commit": "{{ site.github.build_revision | slice: 0, 7 }}"}

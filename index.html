@@ -267,21 +267,13 @@ footer.note a { color: inherit; }
       <label class="mode"><input type="radio" name="mode" value="passage">
         <b>Pasajes</b><span>Varias notas seguidas por grados en el pentagrama: nómbralas en orden.</span><span class="eg">Cuatro notas bajando → La · Sol · Fa · Mi</span></label>
       <label class="mode"><input type="radio" name="mode" value="sing">
-        <b>Entonar</b><span>Canta la nota que ves. El micrófono te escucha y comprueba si es la correcta.</span><span class="eg">Suena Do → cantas Sol</span></label>
+        <b>Entonar</b><span>Suena la nota de la ficha y la cantas. El micrófono te escucha y comprueba si es la correcta.</span><span class="eg">Ves Sol y lo oyes → lo cantas</span></label>
     </div>
   </section>
 
   <section class="section" aria-labelledby="h-set">
     <h2 id="h-set">Opciones del mazo</h2>
     <div class="settings">
-      <div class="field opt-sing">
-        <label for="opt-help">Antes de cantar suena</label>
-        <select id="opt-help">
-          <option value="do">Un Do de referencia</option>
-          <option value="note">La propia nota (para afinar)</option>
-          <option value="none">Nada (oído absoluto)</option>
-        </select>
-      </div>
       <fieldset class="field opt-staff">
         <legend>Claves</legend>
         <div class="checks" id="clefs"></div>
@@ -374,7 +366,7 @@ footer.note a { color: inherit; }
     </div>
     <div class="answers" id="answers"></div>
     <div class="sing-controls" id="sing-controls" hidden>
-      <button type="button" id="sing-ref"></button>
+      <button type="button" id="sing-ref">Escuchar otra vez</button>
       <button type="button" id="sing-giveup">No me sale</button>
     </div>
   </div>
@@ -579,7 +571,7 @@ const SPEED = { read: [2000, 8000], chain: [900, 3500], passage: [1500, 5000], s
 
 // ---------- Opciones, partida y récords en localStorage ----------
 const CFG_KEY = 'solfeo-fichas-v3', GAME_KEY = 'solfeo-fichas-partida-v4', REC_KEY = 'solfeo-fichas-records-v3';
-const DEFAULTS = { mode: 'read', clefs: ['treble', 'bass'], ledger: 1, size: 7, names: 'es', dir: 'both', len: 5, sound: 'on', help: 'do' };
+const DEFAULTS = { mode: 'read', clefs: ['treble', 'bass'], ledger: 1, size: 7, names: 'es', dir: 'both', len: 5, sound: 'on' };
 function load(key, fallback) { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch (e) { return fallback; } }
 function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 let cfg = { ...DEFAULTS, ...load(CFG_KEY, {}) };
@@ -731,7 +723,7 @@ function newGame() {
     cards.push({ ...card, id: i });
   }
   game = {
-    v: 4, mode: cfg.mode, help: cfg.help, sig: signature(), cards,
+    v: 4, mode: cfg.mode, sig: signature(), cards,
     queue: cards.map(c => c.id), pos: 0, round: 1, failed: [], learned: 0,
     misses: {}, firstTry: null, answers: 0, wrong: 0, ms: 0,
     pts: { first: 0, later: 0, speed: 0, miss: 0 },
@@ -744,7 +736,6 @@ function signature(c = cfg) {
   const parts = [c.mode, c.size];
   if (c.mode === 'chain' || c.mode === 'passage') parts.push(c.dir, c.len);
   if (c.mode !== 'chain') parts.push(c.clefs.slice().sort().join('+'), c.ledger);
-  if (c.mode === 'sing') parts.push(c.help);
   return parts.join('|');
 }
 
@@ -985,18 +976,14 @@ function advance() {
 const HOLD_OK = 0.8, HOLD_WRONG = 1.6, SING_LIMIT = 25000;
 let listenTimer = null, ignoreUntil = 0, hold = 0, wrongPc = -1, wrongHold = 0, lastTick = 0;
 function targetPc() { return SEMIS[mod7(current().ask[0])]; }
+// Suena la nota que hay que cantar
 function playHelp() {
-  const card = current();
-  let secs = 0;
-  if (game.help === 'do') secs = playMidi(60);
-  else if (game.help === 'note') secs = playMidi(comfy(card.ask[0]));
+  const secs = playMidi(comfy(current().ask[0]));
   // Mientras suena el piano, el micrófono no cuenta: si no, se oiría a sí mismo
   ignoreUntil = performance.now() + secs * 1000 + 250;
   hold = 0; wrongHold = 0; wrongPc = -1;
 }
 function startSingCard() {
-  $('sing-ref').hidden = game.help === 'none';
-  $('sing-ref').textContent = game.help === 'do' ? 'Escuchar Do' : 'Escuchar la nota';
   ['sing-ref', 'sing-giveup'].forEach(id => { $(id).disabled = false; });
   setTimeout(() => { if (game.mode === 'sing' && !locked) playHelp(); }, 350);
   lastTick = performance.now();
@@ -1175,7 +1162,6 @@ function renderHome() {
   singInput.closest('.mode').classList.toggle('off', !CAN_SING);
   document.querySelectorAll('.opt-staff').forEach(el => el.hidden = cfg.mode === 'chain');
   document.querySelectorAll('.opt-seq').forEach(el => el.hidden = cfg.mode !== 'chain' && cfg.mode !== 'passage');
-  document.querySelectorAll('.opt-sing').forEach(el => el.hidden = cfg.mode !== 'sing');
   document.querySelectorAll('.opt-answer').forEach(el => el.hidden = cfg.mode === 'sing');
   const rec = records[signature()];
   $('home-record').textContent = rec ? `Tu récord con estas opciones: ${fmt(rec.points)} puntos` : '';
@@ -1247,7 +1233,7 @@ $('clefs').addEventListener('change', () => {
   showMsg(cfg.clefs.length ? '' : 'Elige al menos una clave.');
   saveCfg(); renderHome();
 });
-for (const [id, key, num] of [['opt-ledger', 'ledger', true], ['opt-dir', 'dir'], ['opt-len', 'len', true], ['opt-names', 'names'], ['opt-sound', 'sound'], ['opt-help', 'help']]) {
+for (const [id, key, num] of [['opt-ledger', 'ledger', true], ['opt-dir', 'dir'], ['opt-len', 'len', true], ['opt-names', 'names'], ['opt-sound', 'sound']]) {
   $(id).value = cfg[key];
   $(id).addEventListener('change', e => { cfg[key] = num ? +e.target.value : e.target.value; saveCfg(); renderHome(); });
 }

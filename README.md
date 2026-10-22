@@ -8,10 +8,9 @@ Practica la lectura de notas, la escala y la entonación con un mazo de fichas: 
 
 - **Leer la nota:** una nota en el pentagrama; pulsa su nombre.
 - **Escala en cadena:** desde una nota, recita la escala subiendo o bajando.
-- **Pasajes:** varias notas seguidas por grados en el pentagrama; nómbralas en orden.
-- **Entonar:** canta la nota que ves; el micrófono comprueba si es la correcta.
+- **Entonar:** suena la nota de la ficha y la cantas; el micrófono comprueba si es la correcta.
 
-Claves de Sol, Fa, Do en 3.ª y Do en 4.ª, con líneas adicionales opcionales. Puntuación por aciertos y rapidez, récords y resultado para compartir por WhatsApp.
+Un mazo puede mezclar varios ejercicios: las fichas se reparten a partes iguales entre los elegidos. Claves de Sol, Fa, Do en 3.ª y Do en 4.ª, con líneas adicionales opcionales. Puntuación por aciertos y rapidez, récords y resultado para compartir por WhatsApp.
 
 ## Notas
 

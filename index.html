@@ -89,16 +89,23 @@ button svg, .btn svg { width: 20px; height: 20px; flex: none; }
 .resume { display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 14px; padding: 14px 16px; }
 .resume p { margin: 0; flex: 1 1 220px; min-width: 0; }
 .resume .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 10px; }
+.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
 .mode { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 14px; cursor: pointer; position: relative; }
 .mode:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+/* Marca de elegido en la esquina */
+.mode::before { content: ""; position: absolute; top: 12px; right: 12px; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); background: var(--surface); }
+.mode:has(input:checked)::before { border-color: var(--accent); background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 14px no-repeat; }
+.mode b { padding-right: 28px; }
+.illus { margin-top: auto; padding-top: 6px; color: var(--fg); height: 92px; display: flex; align-items: center; justify-content: center; }
+.illus svg { height: 100%; width: auto; max-width: 100%; display: block; overflow: visible; }
+.illus .ink-accent { fill: var(--accent); stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; }
+.illus .ink-accent path { fill: none; }
 .mode input { position: absolute; opacity: 0; pointer-events: none; }
 .mode:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: 2px; }
 .mode b { font-size: 1.05rem; }
 .mode.off { opacity: .5; cursor: not-allowed; }
-.mode.off .eg::after { content: " · Este navegador no permite usar el micrófono"; color: var(--bad); }
+.mode.off::after { content: "Este navegador no permite usar el micrófono"; color: var(--bad); font-size: 0.85rem; }
 .mode span { color: var(--muted); font-size: 0.9rem; }
-.mode .eg { font-size: 0.85rem; color: var(--fg); background: var(--bg); border-radius: 8px; padding: 6px 8px; margin-top: auto; }
 .settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
 .field { display: flex; flex-direction: column; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
 .field > label, .field legend { font-weight: 700; padding: 0; }
@@ -258,16 +265,44 @@ footer.note a { color: inherit; }
   </div>
 
   <section class="section" aria-labelledby="h-mode">
-    <h2 id="h-mode">Ejercicio</h2>
-    <div class="modes" role="radiogroup" aria-labelledby="h-mode">
-      <label class="mode"><input type="radio" name="mode" value="read">
-        <b>Leer la nota</b><span>Una nota en el pentagrama: ¿cuál es?</span><span class="eg">Una nota → Sol</span></label>
-      <label class="mode"><input type="radio" name="mode" value="chain">
-        <b>Escala en cadena</b><span>Recita la escala hacia arriba o hacia abajo desde una nota.</span><span class="eg">Desde Fa, baja 4 → Mi · Re · Do · Si</span></label>
-      <label class="mode"><input type="radio" name="mode" value="passage">
-        <b>Pasajes</b><span>Varias notas seguidas por grados en el pentagrama: nómbralas en orden.</span><span class="eg">Cuatro notas bajando → La · Sol · Fa · Mi</span></label>
-      <label class="mode"><input type="radio" name="mode" value="sing">
-        <b>Entonar</b><span>Suena la nota de la ficha y la cantas. El micrófono te escucha y comprueba si es la correcta.</span><span class="eg">Ves Sol y lo oyes → lo cantas</span></label>
+    <h2 id="h-mode">Ejercicios del mazo</h2>
+    <p class="hint">Elige uno o varios. Las fichas se reparten a partes iguales entre los que elijas.</p>
+    <div class="modes">
+      <label class="mode"><input type="checkbox" name="type" value="read">
+        <b>Leer la nota</b><span>Una nota en el pentagrama: ¿cuál es?</span>
+        <div class="illus" id="illus-read" aria-hidden="true"></div></label>
+      <label class="mode"><input type="checkbox" name="type" value="chain">
+        <b>Escala en cadena</b><span>Recita la escala hacia arriba o hacia abajo desde una nota.</span>
+        <div class="illus" aria-hidden="true">
+          <svg viewBox="0 -24 170 112">
+            <path d="M6 80 H38 V62 H70 V44 H102 V26 H134 V8 H164" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+            <g class="ink-accent">
+              <g transform="translate(22 72)"><ellipse rx="6.5" ry="4.6" transform="rotate(-22)"/><path d="M5.6 -1.5 V-24"/></g>
+              <g transform="translate(54 54)"><ellipse rx="6.5" ry="4.6" transform="rotate(-22)"/><path d="M5.6 -1.5 V-24"/></g>
+              <g transform="translate(86 36)"><ellipse rx="6.5" ry="4.6" transform="rotate(-22)"/><path d="M5.6 -1.5 V-24"/></g>
+              <g transform="translate(118 18)"><ellipse rx="6.5" ry="4.6" transform="rotate(-22)"/><path d="M5.6 -1.5 V-24"/></g>
+              <g transform="translate(149 0)"><ellipse rx="6.5" ry="4.6" transform="rotate(-22)"/><path d="M5.6 -1.5 V-22"/></g>
+            </g>
+          </svg>
+        </div></label>
+      <label class="mode"><input type="checkbox" name="type" value="sing">
+        <b>Entonar</b><span>Suena la nota de la ficha y la cantas. El micrófono te escucha y comprueba si es la correcta.</span>
+        <div class="illus" aria-hidden="true">
+          <svg viewBox="0 0 170 92">
+            <g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="46" cy="24" r="14"/>
+              <path d="M39 20 q2.5 -2.5 5 0 M48 20 q2.5 -2.5 5 0"/>
+              <path d="M46 38 V64 M46 46 L30 56 M46 46 L62 38 M46 64 L35 86 M46 64 L57 86"/>
+            </g>
+            <ellipse cx="47" cy="30" rx="3.6" ry="4.6" fill="currentColor"/>
+            <g class="ink-accent">
+              <g transform="translate(86 46)"><ellipse rx="6" ry="4.3" transform="rotate(-22)"/><path d="M5.2 -1.5 V-22 q6 4 8 12"/></g>
+              <g transform="translate(112 30)"><ellipse rx="6" ry="4.3" transform="rotate(-22)"/><ellipse cx="18" cy="-4" rx="6" ry="4.3" transform="rotate(-22)"/><path d="M5.2 -1.5 V-22 L23 -26 V-6"/></g>
+              <g transform="translate(150 50)"><ellipse rx="6" ry="4.3" transform="rotate(-22)"/><path d="M5.2 -1.5 V-22 q6 4 8 12"/></g>
+            </g>
+            <path d="M66 30 q6 6 0 12 M72 26 q9 10 0 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity=".55"/>
+          </svg>
+        </div></label>
     </div>
   </section>
 
@@ -288,16 +323,16 @@ footer.note a { color: inherit; }
           <option value="3">Hasta 3</option>
         </select>
       </div>
-      <div class="field opt-seq">
-        <label for="opt-dir">Sentido</label>
+      <div class="field opt-chain">
+        <label for="opt-dir">Sentido de la escala</label>
         <select id="opt-dir">
           <option value="both">Subir y bajar</option>
           <option value="up">Solo subir</option>
           <option value="down">Solo bajar</option>
         </select>
       </div>
-      <div class="field opt-seq">
-        <label for="opt-len">Notas por ficha</label>
+      <div class="field opt-chain">
+        <label for="opt-len">Notas por cadena</label>
         <select id="opt-len">
           <option value="3">3</option>
           <option value="4">De 3 a 4</option>
@@ -559,7 +594,7 @@ const CLEFS = {
   alto:   { long: 'clave de Do en 3.ª', bottom: 3 * 7 + 3, top: 4 * 7 + 4 },  // Fa3 – Sol4
   tenor:  { long: 'clave de Do en 4.ª', bottom: 3 * 7 + 1, top: 4 * 7 + 2 },  // Re3 – Mi4
 };
-const MODES = { read: 'Lectura', chain: 'Escala en cadena', passage: 'Pasajes', sing: 'Entonar' };
+const TYPES = { read: 'Lectura', chain: 'Escala', sing: 'Entonar' };
 const NAMES = { es: ['Do', 'Re', 'Mi', 'Fa', 'Sol', 'La', 'Si'], en: ['C', 'D', 'E', 'F', 'G', 'A', 'B'] };
 const CHROMA = { es: ['Do', 'Do♯', 'Re', 'Re♯', 'Mi', 'Fa', 'Fa♯', 'Sol', 'Sol♯', 'La', 'La♯', 'Si'], en: ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'] };
 const VF_STEP = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
@@ -567,23 +602,23 @@ const SEMIS = [0, 2, 4, 5, 7, 9, 11];
 
 // Puntuación. La rapidez se mide por nota: rápido = bonus completo, lento = nada.
 const PTS_FIRST = 100, PTS_LATER = 50, PTS_SPEED = 50, PTS_MISS = 25, MAX_NOTE_MS = 30000;
-const SPEED = { read: [2000, 8000], chain: [900, 3500], passage: [1500, 5000], sing: [3000, 12000] };
+const SPEED = { read: [2000, 8000], chain: [900, 3500], sing: [3000, 12000] };
 
 // ---------- Opciones, partida y récords en localStorage ----------
-const CFG_KEY = 'solfeo-fichas-v3', GAME_KEY = 'solfeo-fichas-partida-v4', REC_KEY = 'solfeo-fichas-records-v3';
-const DEFAULTS = { mode: 'read', clefs: ['treble', 'bass'], ledger: 1, size: 7, names: 'es', dir: 'both', len: 5, sound: 'on' };
+const CFG_KEY = 'solfeo-fichas-v4', GAME_KEY = 'solfeo-fichas-partida-v5', REC_KEY = 'solfeo-fichas-records-v4';
+const DEFAULTS = { types: ['read'], clefs: ['treble', 'bass'], ledger: 1, size: 7, names: 'es', dir: 'both', len: 5, sound: 'on' };
 function load(key, fallback) { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch (e) { return fallback; } }
 function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
+// Entonar solo existe si el navegador puede usar el micrófono
+const CAN_SING = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 let cfg = { ...DEFAULTS, ...load(CFG_KEY, {}) };
-if (!MODES[cfg.mode]) cfg.mode = 'read';
+cfg.types = (cfg.types || []).filter(t => TYPES[t] && (t !== 'sing' || CAN_SING));
+if (!cfg.types.length) cfg.types = DEFAULTS.types.slice();
 cfg.clefs = (cfg.clefs || []).filter(c => CLEFS[c]);
 if (!cfg.clefs.length) cfg.clefs = DEFAULTS.clefs.slice();
 let game = load(GAME_KEY, null);
-if (!game || game.v !== 4 || !Array.isArray(game.cards)) game = null;
+if (!game || game.v !== 5 || !Array.isArray(game.cards)) game = null;
 let records = load(REC_KEY, {});
-// Entonar solo existe si el navegador puede usar el micrófono
-const CAN_SING = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-if (cfg.mode === 'sing' && !CAN_SING) cfg.mode = 'read';
 const saveCfg = () => store(CFG_KEY, cfg), saveGame = () => store(GAME_KEY, game), saveRecords = () => store(REC_KEY, records);
 
 // ---------- Utilidades ----------
@@ -601,9 +636,11 @@ function cssVar(name) { return getComputedStyle(document.documentElement).getPro
 function dirs() { return cfg.dir === 'up' ? [1] : cfg.dir === 'down' ? [-1] : [1, -1]; }
 function rangeOf(c) { const span = 2 * cfg.ledger + 1; return [CLEFS[c].bottom - span, CLEFS[c].top + span]; }
 const midiOf = n => 12 * (Math.floor(n / 7) + 1) + SEMIS[mod7(n)];
+const listTypes = types => types.map(t => TYPES[t]).join(', ').replace(/, ([^,]*)$/, ' y $1');
+const usesStaff = types => types.includes('read') || types.includes('sing');
 
 // ---------- Piano ----------
-// Sonido sintetizado (sin archivos, para que funcione sin conexión): parciales con caída rápida, como una cuerda percutida
+// Sonido sintetizado (sin archivos, para que funcione sin conexión): parciales con caída lenta, como una cuerda percutida
 let actx = null;
 function audio() {
   if (!actx) {
@@ -624,7 +661,7 @@ function playMidi(m, delay = 0, dur = 1.6, ac = audio()) {
   lp.frequency.setValueAtTime(Math.min(12000, f * 12), t0);
   lp.frequency.setTargetAtTime(Math.max(600, f * 4), t0, 0.35);
   out.connect(lp).connect(ac.destination);
-  // Ataque rápido, la nota se mantiene casi un segundo apagándose poco a poco y luego se suelta
+  // Ataque rápido, la nota se mantiene algo más de un segundo apagándose poco a poco y luego se suelta
   out.gain.setValueAtTime(0.0001, t0);
   out.gain.linearRampToValueAtTime(0.18, t0 + 0.008);
   out.gain.setTargetAtTime(0.1, t0 + 0.008, 0.8);
@@ -644,10 +681,10 @@ const comfy = n => { let m = midiOf(n); while (m < 48) m += 12; while (m > 71) m
 function playNote(n) { if (cfg.sound === 'on') playMidi(comfy(n)); }
 
 // ---------- Micrófono y detección de tono ----------
-let mic = null, micState = 'off';   // off | on | denied
+let mic = null;
 async function startMic() {
   if (mic) return true;
-  if (!navigator.mediaDevices?.getUserMedia) { micState = 'denied'; return false; }
+  if (!CAN_SING) return false;
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
     const ac = audio();
@@ -656,14 +693,12 @@ async function startMic() {
     an.fftSize = 2048;
     src.connect(an);
     mic = { stream, an, buf: new Float32Array(an.fftSize) };
-    micState = 'on';
     return true;
-  } catch (e) { micState = 'denied'; return false; }
+  } catch (e) { return false; }
 }
 function stopMic() {
   if (mic) mic.stream.getTracks().forEach(t => t.stop());
   mic = null;
-  if (micState === 'on') micState = 'off';
 }
 // Algoritmo YIN: devuelve la frecuencia en Hz o null si no hay una nota clara
 function detectPitch() {
@@ -695,35 +730,35 @@ function detectPitch() {
 }
 
 // ---------- Mazo ----------
-// Cada ficha tiene "notes" (las que se dibujan o recitan) y "ask" (las que hay que nombrar o cantar, en orden)
-function makeCard(mode) {
-  if (mode === 'read' || mode === 'sing') {
-    const c = pick(cfg.clefs), [lo, hi] = rangeOf(c);
-    const n = rand(lo, hi);
-    return { c, notes: [n], ask: [n] };
-  }
-  const d = pick(dirs());
-  const len = rand(Math.min(3, cfg.len), cfg.len);
-  if (mode === 'chain') {
+// Cada ficha tiene su tipo, "notes" (las que se dibujan o recitan) y "ask" (las que hay que nombrar o cantar, en orden)
+function makeCard(type) {
+  if (type === 'chain') {
+    const d = pick(dirs()), len = rand(Math.min(3, cfg.len), cfg.len);
     const n0 = rand(0, 6) + 28;                           // octava indiferente: solo importa el nombre
     const seq = Array.from({ length: len }, (_, i) => n0 + d * (i + 1));
-    return { start: n0, d, notes: [n0, ...seq], ask: seq };
+    return { type, start: n0, d, notes: [n0, ...seq], ask: seq };
   }
   const c = pick(cfg.clefs), [lo, hi] = rangeOf(c);
-  const first = d > 0 ? rand(lo, hi - (len - 1)) : rand(lo + (len - 1), hi);
-  const notes = Array.from({ length: len }, (_, i) => first + d * i);
-  return { c, d, notes, ask: notes };
+  const n = rand(lo, hi);
+  return { type, c, notes: [n], ask: [n] };
 }
-const keyOf = card => [card.c || '', card.notes.join('.')].join(':');
+const keyOf = card => [card.type, card.c || '', card.notes.join('.')].join(':');
+// Reparte las fichas a partes iguales entre los tipos elegidos (el resto, al azar)
+function deckTypes() {
+  const types = cfg.types, base = Math.floor(cfg.size / types.length);
+  const list = types.flatMap(t => Array(base).fill(t));
+  shuffle(types.slice()).slice(0, cfg.size - list.length).forEach(t => list.push(t));
+  return shuffle(list);
+}
 function newGame() {
   const cards = [];
-  for (let i = 0; i < cfg.size; i++) {
+  deckTypes().forEach((type, i) => {
     let card, tries = 0;
-    do { card = makeCard(cfg.mode); } while (cards.length && keyOf(card) === keyOf(cards[cards.length - 1]) && ++tries < 20);
+    do { card = makeCard(type); } while (cards.length && keyOf(card) === keyOf(cards[cards.length - 1]) && ++tries < 20);
     cards.push({ ...card, id: i });
-  }
+  });
   game = {
-    v: 4, mode: cfg.mode, sig: signature(), cards,
+    v: 5, types: cfg.types.slice(), sig: signature(), cards,
     queue: cards.map(c => c.id), pos: 0, round: 1, failed: [], learned: 0,
     misses: {}, firstTry: null, answers: 0, wrong: 0, ms: 0,
     pts: { first: 0, later: 0, speed: 0, miss: 0 },
@@ -733,9 +768,10 @@ function newGame() {
 }
 // Identifica el tipo de mazo para guardar un récord por cada combinación de opciones
 function signature(c = cfg) {
-  const parts = [c.mode, c.size];
-  if (c.mode === 'chain' || c.mode === 'passage') parts.push(c.dir, c.len);
-  if (c.mode !== 'chain') parts.push(c.clefs.slice().sort().join('+'), c.ledger);
+  const types = c.types.slice().sort();
+  const parts = [types.join('+'), c.size];
+  if (types.includes('chain')) parts.push(c.dir, c.len);
+  if (usesStaff(types)) parts.push(c.clefs.slice().sort().join('+'), c.ledger);
   return parts.join('|');
 }
 
@@ -744,7 +780,7 @@ const H = 170;
 function vfKey(n) { return VF_STEP[mod7(n)] + '/' + Math.floor(n / 7); }
 // notes: [{ n, color }]
 function drawStaff(el, clef, notes, W) {
-  W = W || (notes.length > 1 ? 210 + notes.length * 34 : 300);
+  W = W || 300;
   el.innerHTML = '';
   if (!VF) { el.textContent = 'No se ha podido dibujar el pentagrama. Recarga la página.'; return; }
   const renderer = new VF.Renderer(el, VF.Renderer.Backends.SVG);
@@ -755,7 +791,6 @@ function drawStaff(el, clef, notes, W) {
   const stave = new VF.Stave(10, 35, W - 20, { fill_style: ink });
   stave.addClef(clef);
   stave.setContext(ctx).draw();
-  if (notes.length > 1) stave.setNoteStartX(stave.getNoteStartX() + 18);
   const tickables = notes.map(({ n, color }) => {
     const note = new VF.StaveNote({ clef, keys: [vfKey(n)], duration: 'w', align_center: notes.length === 1 });
     const c = color || ink;
@@ -764,7 +799,7 @@ function drawStaff(el, clef, notes, W) {
     return note;
   });
   const voice = new VF.Voice({ num_beats: 4 * notes.length, beat_value: 4 }).addTickables(tickables);
-  new VF.Formatter().joinVoices([voice]).format([voice], Math.max(20, W - (notes.length > 1 ? 120 : 140)));
+  new VF.Formatter().joinVoices([voice]).format([voice], Math.max(20, W - 140));
   voice.draw(ctx, stave);
   const svg = el.querySelector('svg');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
@@ -780,37 +815,27 @@ function renderCardFace() {
   const card = current();
   const el = $('card');
   const corner = `<span class="corner">${game.pos + 1} / ${game.queue.length}</span>`;
-  const slots = () => `<div class="slots">${
-    (game.mode === 'chain' ? `<div class="slot given">${nameOf(card.start)}</div>` : '')
-    + card.ask.map((n, i) => {
-      const m = marks[i];
-      const cls = m === 'ok' ? 'ok' : m === 'bad' ? 'bad' : m === 'reveal' ? 'reveal' : (i === step && !locked ? 'cur' : '');
-      return `<div class="slot ${cls}">${m ? nameOf(n) : ''}</div>`;
-    }).join('')}</div>`;
-  if (game.mode === 'read') {
+  if (card.type === 'read') {
     el.innerHTML = `${corner}<p class="prompt">¿Qué nota es?</p><div class="staff"></div>`;
-  } else if (game.mode === 'sing') {
+  } else if (card.type === 'sing') {
     el.innerHTML = `${corner}<p class="prompt"><b>Canta</b> esta nota</p><div class="staff"></div>
       <div class="tuner"><span class="heard" id="heard">…</span><div class="hold"><div id="hold"></div></div></div>
       <p class="tuner-note">Canta en la octava que te resulte cómoda.</p>`;
-  } else if (game.mode === 'chain') {
-    const n = card.ask.length;
-    el.innerHTML = `${corner}<p class="prompt">Desde ${nameOf(card.start)}, <b>${card.d > 0 ? 'sube' : 'baja'} ${n} ${n === 1 ? 'nota' : 'notas'}</b></p>
-      <div class="chain"><span class="from">${nameOf(card.start)}</span><span class="dir">${card.d > 0 ? '↗' : '↘'}</span></div>${slots()}`;
   } else {
-    el.innerHTML = `${corner}<p class="prompt">Nombra las notas <b>en orden</b></p><div class="staff"></div>${slots()}`;
+    const n = card.ask.length;
+    const slots = `<div class="slot given">${nameOf(card.start)}</div>` + card.ask.map((note, i) => {
+      const m = marks[i];
+      const cls = m === 'ok' ? 'ok' : m === 'bad' ? 'bad' : m === 'reveal' ? 'reveal' : (i === step && !locked ? 'cur' : '');
+      return `<div class="slot ${cls}">${m ? nameOf(note) : ''}</div>`;
+    }).join('');
+    el.innerHTML = `${corner}<p class="prompt">Desde ${nameOf(card.start)}, <b>${card.d > 0 ? 'sube' : 'baja'} ${n} ${n === 1 ? 'nota' : 'notas'}</b></p>
+      <div class="chain"><span class="from">${nameOf(card.start)}</span><span class="dir">${card.d > 0 ? '↗' : '↘'}</span></div><div class="slots">${slots}</div>`;
   }
   const staffEl = el.querySelector('.staff');
   if (staffEl) {
-    const okC = cssVar('--ok'), badC = cssVar('--bad'), accC = cssVar('--accent');
-    const notes = card.notes.map((n, i) => {
-      const m = marks[i];
-      let color = null;
-      if (m === 'ok') color = okC; else if (m === 'bad') color = badC;
-      else if (game.mode === 'passage' && i === step && !locked) color = accC;
-      return { n, color };
-    });
-    drawStaff(staffEl, card.c, notes);
+    const m = marks[0];
+    const color = m === 'ok' ? cssVar('--ok') : m === 'bad' ? cssVar('--bad') : null;
+    drawStaff(staffEl, card.c, [{ n: card.notes[0], color }]);
   }
 }
 // Botones de las notas, siempre en un orden distinto en cada ficha
@@ -845,7 +870,7 @@ function resetCard(cls) {
 function showCard(animate) {
   clearTimeout(waitTimer); stopListening();
   locked = false; step = 0; marks = [];
-  const sing = game.mode === 'sing';
+  const card = current(), sing = card.type === 'sing';
   $('answers').hidden = sing;
   $('sing-controls').hidden = !sing;
   $('feedback').textContent = ''; $('feedback').className = 'feedback';
@@ -856,7 +881,7 @@ function showCard(animate) {
   if (animate) { const el = $('card'); el.classList.add('enter'); el.addEventListener('animationend', () => el.classList.remove('enter'), { once: true }); }
   startedAt = performance.now();
   if (sing) startSingCard();
-  else if (game.mode === 'chain') playNote(current().start);
+  else if (card.type === 'chain') playNote(card.start);
 }
 function showBetween() {
   clearTimeout(waitTimer); stopListening();
@@ -882,8 +907,9 @@ function startRound() {
 }
 
 function press(choice) {
-  if (locked || game.phase !== 'play' || game.mode === 'sing') return;
+  if (locked || game.phase !== 'play') return;
   const card = current();
+  if (card.type === 'sing') return;
   const want = mod7(card.ask[step]);
   const btn = answerBtn(choice);
   if (choice === want) {
@@ -918,18 +944,19 @@ function finishCard(ok, failText) {
   game.ms += ms;
   game.answers++;
   game.lastId = card.id;
+  if (card.type !== 'chain') marks[0] = ok ? 'ok' : 'bad';
   renderCardFace();
-  if (game.mode === 'sing') singResult(ok);
+  if (card.type === 'sing') singResult(ok);
   if (ok) {
     game.learned++;
     const base = game.round === 1 ? PTS_FIRST : PTS_LATER;
-    const [fast, slow] = SPEED[game.mode].map(t => t * card.ask.length);
+    const [fast, slow] = SPEED[card.type].map(t => t * card.ask.length);
     const bonus = ms <= fast ? PTS_SPEED : ms >= slow ? 0 : Math.round(PTS_SPEED * (slow - ms) / (slow - fast));
     if (game.round === 1) game.pts.first += base; else game.pts.later += base;
     game.pts.speed += bonus;
     $('feedback').innerHTML = `¡Bien!<span class="pts">+${base + bonus}</span>`;
     $('feedback').className = 'feedback ok';
-    waitTimer = setTimeout(() => leave(true), game.mode === 'sing' ? 1100 : 650);
+    waitTimer = setTimeout(() => leave(true), card.type === 'sing' ? 1100 : 650);
   } else {
     game.failed.push(card.id);
     game.misses[card.id] = (game.misses[card.id] || 0) + 1;
@@ -938,7 +965,7 @@ function finishCard(ok, failText) {
     $('feedback').innerHTML = `${failText}.<span class="pts">−${PTS_MISS}</span>`;
     $('feedback').className = 'feedback bad';
     $('card').classList.add('wrong');
-    waitTimer = setTimeout(() => leave(false), card.ask.length > 1 || game.mode === 'sing' ? 2600 : 1700);
+    waitTimer = setTimeout(() => leave(false), card.type === 'read' ? 1700 : 2600);
   }
   saveGame();
 }
@@ -985,7 +1012,7 @@ function playHelp() {
 }
 function startSingCard() {
   ['sing-ref', 'sing-giveup'].forEach(id => { $(id).disabled = false; });
-  setTimeout(() => { if (game.mode === 'sing' && !locked) playHelp(); }, 350);
+  setTimeout(() => { if (current()?.type === 'sing' && !locked) playHelp(); }, 350);
   lastTick = performance.now();
   listenTimer = setInterval(listenTick, 50);
 }
@@ -1035,10 +1062,9 @@ function finishGame() {
   if (game.newRecord) { records[game.sig] = { points: pts, date: Date.now() }; saveRecords(); }
 }
 function describeDeck(g = game) {
-  if (g.mode === 'chain') return 'Escala en cadena';
-  const used = new Set(g.cards.map(c => c.c));
+  const used = new Set(g.cards.map(c => c.c).filter(Boolean));
   const clefs = Object.keys(CLEFS).filter(k => used.has(k)).map(c => CLEFS[c].long.replace('clave de ', ''));
-  return `${MODES[g.mode]} en clave de ${clefs.join(', ').replace(/, ([^,]*)$/, ' y $1')}`;
+  return listTypes(g.types) + (clefs.length ? ` · clave de ${clefs.join(', ').replace(/, ([^,]*)$/, ' y $1')}` : '');
 }
 function shareText() {
   const pts = total(), stars = starsOf(pts);
@@ -1051,7 +1077,7 @@ function showResults() {
   stopListening();
   $('table').hidden = true;
   $('results-area').hidden = false;
-  $('round-info').innerHTML = `${MODES[game.mode]}`;
+  $('round-info').textContent = listTypes(game.types);
   $('score-info').innerHTML = '';
   const pts = total(), stars = starsOf(pts);
   $('done-stars').innerHTML = '★'.repeat(stars) + `<span class="off">${'★'.repeat(3 - stars)}</span>`;
@@ -1085,20 +1111,21 @@ function showResults() {
   const hard = [...byCard.values()].sort((a, b) => b.n - a.n).slice(0, 6);
   $('hard-wrap').hidden = !hard.length;
   $('hard').innerHTML = hard.map(({ c, n }) => {
-    const label = game.mode === 'chain'
+    const label = c.type === 'chain'
       ? `${nameOf(c.start)} ${c.d > 0 ? '↗' : '↘'} ${c.ask.map(nameOf).join(' ')}`
-      : c.ask.map(nameOf).join(' ');
+      : (c.type === 'sing' ? 'Cantar ' : '') + nameOf(c.ask[0]);
     return `<li>${c.c ? '<div class="mini"></div>' : ''}<span>${label} · ${n} ${n === 1 ? 'fallo' : 'fallos'}</span></li>`;
   }).join('');
   $('hard').querySelectorAll('.mini').forEach((m, i) => {
-    const c = hard[i].c;
-    drawStaff(m, c.c, c.notes.map(n => ({ n })), c.notes.length > 1 ? 150 + c.notes.length * 26 : 150);
+    const c = hard.filter(h => h.c.c)[i].c;
+    drawStaff(m, c.c, [{ n: c.notes[0] }], 150);
   });
   $('again').focus();
 }
 
 // ---------- Abrir y cerrar la mesa ----------
 let fullscreenByUs = false;
+const hasSing = () => game.cards.some(c => c.type === 'sing');
 function renderSoundBtn() {
   const on = cfg.sound === 'on';
   $('sound').setAttribute('aria-pressed', String(on));
@@ -1106,7 +1133,8 @@ function renderSoundBtn() {
   $('sound').innerHTML = on
     ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>'
     : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="m16 9 6 6M22 9l-6 6"/></svg>';
-  $('sound').hidden = game?.mode === 'sing';
+  // En las fichas de entonar la nota suena siempre: el botón solo afecta a las demás
+  $('sound').hidden = !!game && game.cards.every(c => c.type === 'sing');
 }
 async function openGame() {
   audio();   // el audio solo se puede activar tras un toque del usuario
@@ -1120,8 +1148,8 @@ async function openGame() {
   renderSoundBtn();
   $('table').hidden = game.phase === 'done';
   $('results-area').hidden = game.phase !== 'done';
-  if (game.mode === 'sing' && game.phase !== 'done') {
-    // Entonar necesita el micrófono: se pide antes de la primera ficha
+  if (hasSing() && game.phase !== 'done') {
+    // Las fichas de entonar necesitan el micrófono: se pide antes de la primera ficha
     $('answers').hidden = true; $('sing-controls').hidden = true;
     resetCard('card center-msg').innerHTML = '<h2>Micrófono</h2><p>Permite el acceso al micrófono para que la página te escuche cantar.</p>';
     if (!await startMic()) return noMic();
@@ -1131,12 +1159,18 @@ async function openGame() {
   else if (game.phase === 'between') showBetween();
   else showResults();
 }
+// Sin permiso de micrófono se vuelve al inicio; un mazo con fichas de entonar sin empezar se descarta
+function noMic() {
+  if (game && game.answers === 0) { game = null; try { localStorage.removeItem(GAME_KEY); } catch (e) {} }
+  closeGame();
+  showMsg('Para entonar hace falta el micrófono. Permite su uso en los ajustes del navegador para esta página o quita Entonar del mazo.');
+}
 function closeGame(fromHistory) {
   if ($('game').hidden) return;
   clearTimeout(waitTimer);
   stopListening();
   // Una ficha ya contestada cuenta; una a medias se vuelve a empezar al continuar
-  if (locked && game.phase === 'play') advance();
+  if (game && locked && game.phase === 'play') advance();
   stopListening();
   stopMic();
   $('game').hidden = true;
@@ -1154,15 +1188,15 @@ function renderHome() {
   $('resume').hidden = !inProgress;
   if (inProgress) {
     const left = game.queue.length - game.pos + game.failed.length;
-    $('resume-text').innerHTML = `Tienes un mazo a medias: <b>${MODES[game.mode]}</b>, ronda ${game.round}, ${left} ${left === 1 ? 'ficha' : 'fichas'} por aprender.`;
+    $('resume-text').innerHTML = `Tienes un mazo a medias: <b>${listTypes(game.types)}</b>, ronda ${game.round}, ${left} ${left === 1 ? 'ficha' : 'fichas'} por aprender.`;
   }
-  document.querySelectorAll('input[name=mode]').forEach(r => { r.checked = r.value === cfg.mode; });
-  const singInput = document.querySelector('input[name=mode][value=sing]');
-  singInput.disabled = !CAN_SING;
-  singInput.closest('.mode').classList.toggle('off', !CAN_SING);
-  document.querySelectorAll('.opt-staff').forEach(el => el.hidden = cfg.mode === 'chain');
-  document.querySelectorAll('.opt-seq').forEach(el => el.hidden = cfg.mode !== 'chain' && cfg.mode !== 'passage');
-  document.querySelectorAll('.opt-answer').forEach(el => el.hidden = cfg.mode === 'sing');
+  document.querySelectorAll('input[name=type]').forEach(r => {
+    r.checked = cfg.types.includes(r.value);
+    if (r.value === 'sing') { r.disabled = !CAN_SING; r.closest('.mode').classList.toggle('off', !CAN_SING); }
+  });
+  document.querySelectorAll('.opt-staff').forEach(el => el.hidden = !usesStaff(cfg.types));
+  document.querySelectorAll('.opt-chain').forEach(el => el.hidden = !cfg.types.includes('chain'));
+  document.querySelectorAll('.opt-answer').forEach(el => el.hidden = cfg.types.every(t => t === 'sing'));
   const rec = records[signature()];
   $('home-record').textContent = rec ? `Tu récord con estas opciones: ${fmt(rec.points)} puntos` : '';
   $('start').textContent = inProgress ? 'Empezar un mazo nuevo' : 'Empezar';
@@ -1170,7 +1204,7 @@ function renderHome() {
 function showMsg(t) { $('msg').textContent = t; $('msg').hidden = !t; }
 
 $('start').addEventListener('click', () => {
-  if (cfg.mode !== 'chain' && !cfg.clefs.length) { showMsg('Elige al menos una clave.'); return; }
+  if (usesStaff(cfg.types) && !cfg.clefs.length) { showMsg('Elige al menos una clave.'); return; }
   showMsg('');
   newGame();
   openGame();
@@ -1181,16 +1215,11 @@ $('quit').addEventListener('click', () => closeGame());
 $('to-home').addEventListener('click', () => closeGame());
 $('again').addEventListener('click', async () => {
   newGame();
+  renderSoundBtn();
   $('results-area').hidden = true; $('table').hidden = false;
-  if (game.mode === 'sing' && !await startMic()) return noMic();
+  if (hasSing() && !await startMic()) return noMic();
   showCard(true);
 });
-// Sin permiso de micrófono se vuelve al inicio; un mazo de entonar sin empezar se descarta
-function noMic() {
-  if (game && game.mode === 'sing' && game.answers === 0) { game = null; try { localStorage.removeItem(GAME_KEY); } catch (e) {} }
-  closeGame();
-  showMsg('Para entonar hace falta el micrófono. Permite su uso en los ajustes del navegador para esta página y vuelve a intentarlo.');
-}
 $('sound').addEventListener('click', () => { cfg.sound = cfg.sound === 'on' ? 'off' : 'on'; saveCfg(); renderSoundBtn(); $('opt-sound').value = cfg.sound; });
 window.addEventListener('popstate', () => closeGame(true));
 
@@ -1214,18 +1243,24 @@ $('share-copy').addEventListener('click', () => {
 document.addEventListener('keydown', e => {
   if ($('game').hidden || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Escape') { e.preventDefault(); closeGame(); return; }
-  if (game.phase === 'play' && game.mode !== 'sing' && /^[1-7]$/.test(e.key)) { e.preventDefault(); press(order[+e.key - 1]); }
+  if (game.phase === 'play' && current().type !== 'sing' && /^[1-7]$/.test(e.key)) { e.preventDefault(); press(order[+e.key - 1]); }
   else if (e.key === 'Enter' || e.key === ' ') {
     if (game.phase === 'play' && locked) { e.preventDefault(); leave(!game.failed.includes(current().id)); }
     else if (game.phase === 'between' && document.activeElement?.id !== 'between-go') { e.preventDefault(); startRound(); }
   }
 });
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-  if (!$('game').hidden && game.phase === 'play' && game.mode !== 'sing') renderCardFace();
+  drawIllustration();
+  if (!$('game').hidden && game.phase === 'play' && current().type === 'read') renderCardFace();
 });
 
 // ---------- Opciones ----------
-document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', () => { cfg.mode = r.value; saveCfg(); renderHome(); }));
+document.querySelectorAll('input[name=type]').forEach(r => r.addEventListener('change', () => {
+  const chosen = [...document.querySelectorAll('input[name=type]:checked')].map(i => i.value);
+  if (!chosen.length) { r.checked = true; showMsg('El mazo necesita al menos un ejercicio.'); return; }
+  showMsg('');
+  cfg.types = chosen; saveCfg(); renderHome();
+}));
 $('clefs').innerHTML = Object.entries(CLEFS).map(([k, c]) =>
   `<label><input type="checkbox" value="${k}" ${cfg.clefs.includes(k) ? 'checked' : ''}> ${c.long.charAt(0).toUpperCase() + c.long.slice(1)}</label>`).join('');
 $('clefs').addEventListener('change', () => {
@@ -1242,6 +1277,13 @@ $('opt-size').addEventListener('change', e => {
   cfg.size = Math.min(100, Math.max(3, Math.round(+e.target.value || 7)));
   e.target.value = cfg.size; saveCfg(); renderHome();
 });
+// Ilustración de "Leer la nota": un Sol en clave de Sol, dibujado como en las fichas
+function drawIllustration() {
+  const el = $('illus-read');
+  drawStaff(el, 'treble', [{ n: 4 * 7 + 4, color: cssVar('--accent') }], 200);
+  el.querySelector('svg')?.setAttribute('viewBox', '0 52 200 78');   // solo el pentagrama, sin márgenes
+}
+drawIllustration();
 
 // Versión publicada: version.json lo rellena GitHub Pages en cada publicación
 fetch('version.json', { cache: 'no-store' })

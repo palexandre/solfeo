@@ -220,6 +220,8 @@ footer.note a { color: inherit; }
 .sing-controls button { flex: 1 1 160px; }
 
 /* Resultados */
+/* Los resultados pueden ser más altos que la pantalla: centrar con margen automático (no con justify-content) para que no se corten por arriba */
+#results-area { justify-content: flex-start; }
 .results { width: min(580px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--card-shadow); padding: 24px 16px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; margin: auto; }
 .results h2 { font-size: 1.5rem; }
 .results p { margin: 0; max-width: 46ch; }
@@ -1120,7 +1122,9 @@ function showResults() {
     const c = hard.filter(h => h.c.c)[i].c;
     drawStaff(m, c.c, [{ n: c.notes[0] }], 150);
   });
-  $('again').focus();
+  // El foco va al botón sin desplazar la vista: los resultados se ven desde arriba
+  $('again').focus({ preventScroll: true });
+  $('game').scrollTop = 0;
 }
 
 // ---------- Abrir y cerrar la mesa ----------

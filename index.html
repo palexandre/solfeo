@@ -175,6 +175,7 @@ footer.note a { color: inherit; }
 .slot.bad { border-style: solid; border-color: var(--bad); background: var(--bad-soft); color: var(--bad); }
 .slot.reveal { border-style: solid; color: var(--muted); font-style: italic; }
 /* Afinador de la ficha de entonar */
+.pitch-ball { transition: cy .08s linear, fill .15s, opacity .2s; stroke: var(--surface); stroke-width: 1.2; }
 .tuner { display: flex; align-items: center; gap: 3cqw; width: 70%; }
 .tuner .heard { min-width: 16cqw; text-align: center; font-weight: 700; font-size: 6cqw; line-height: 1; color: var(--muted); }
 .tuner .heard.ok { color: var(--ok); }
@@ -812,6 +813,8 @@ function drawStaff(el, clef, notes, W) {
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.removeAttribute('width'); svg.removeAttribute('height');
   svg.style.width = ''; svg.style.height = '';
+  const first = tickables[0];
+  return { svg, x: first.getAbsoluteX() + first.getGlyphWidth(), y: first.getYs()[0], gap: stave.getSpacingBetweenLines() };
 }
 
 // ---------- Ficha en juego ----------
@@ -827,7 +830,7 @@ function renderCardFace() {
   } else if (card.type === 'sing') {
     el.innerHTML = `${corner}<p class="prompt">Canta esta nota: <b class="sing-name">${nameOf(card.ask[0])}</b></p><div class="staff"></div>
       <div class="tuner"><span class="heard" id="heard">…</span><div class="hold"><div id="hold"></div></div></div>
-      <p class="tuner-note">Canta en la octava que te resulte cómoda.</p>`;
+      <p class="tuner-note">La bola sigue tu voz: si está por encima de la nota, baja; si está por debajo, sube.</p>`;
   } else {
     const n = card.ask.length;
     const slots = `<div class="slot given">${nameOf(card.start)}</div>` + card.ask.map((note, i) => {
@@ -842,7 +845,8 @@ function renderCardFace() {
   if (staffEl) {
     const m = marks[0];
     const color = m === 'ok' ? cssVar('--ok') : m === 'bad' ? cssVar('--bad') : null;
-    drawStaff(staffEl, card.c, [{ n: card.notes[0], color }]);
+    const geo = drawStaff(staffEl, card.c, [{ n: card.notes[0], color }]);
+    if (card.type === 'sing' && geo) addPitchBall(geo);
   }
 }
 // Botones de las notas, siempre en un orden distinto en cada ficha
@@ -1035,11 +1039,13 @@ function listenTick() {
   lastTick = now;
   const heard = $('heard'), bar = $('hold');
   if (!heard) return;
-  if (now < ignoreUntil) { heard.textContent = '♪'; heard.className = 'heard'; return; }
+  if (now < ignoreUntil) { heard.textContent = '♪'; heard.className = 'heard'; if (ball) ball.el.style.opacity = '0'; return; }
   if (now - startedAt > SING_LIMIT) return finishCard(false, `Se acabó el tiempo. Era ${nameOf(current().ask[0])}`);
   const f = detectPitch();
-  if (!f) { heard.textContent = '…'; heard.className = 'heard'; hold = Math.max(0, hold - dt * 0.5); bar.style.width = (100 * hold / HOLD_OK) + '%'; return; }
-  const near = Math.round(69 + 12 * Math.log2(f / 440));
+  if (!f) { moveBall(null); heard.textContent = '…'; heard.className = 'heard'; hold = Math.max(0, hold - dt * 0.5); bar.style.width = (100 * hold / HOLD_OK) + '%'; return; }
+  const sung = 69 + 12 * Math.log2(f / 440);
+  moveBall(sung);
+  const near = Math.round(sung);
   const pc = ((near % 12) + 12) % 12;
   heard.textContent = CHROMA[cfg.names][pc];
   const good = accepted().includes(pc);
@@ -1052,6 +1058,35 @@ function listenTick() {
   bar.style.width = Math.min(100, 100 * hold / HOLD_OK) + '%';
   if (hold >= HOLD_OK) finishCard(true);
   else if (wrongHold >= HOLD_WRONG) finishCard(false, `Has cantado ${CHROMA[cfg.names][pc]}; era ${nameOf(current().ask[0])}`);
+}
+// Bola que sigue el tono que cantas junto a la nota: sube y baja contigo y va de rojo (lejos) a verde (en la nota)
+let ball = null, ballMidi = null;
+function addPitchBall(geo) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const c = document.createElementNS(NS, 'circle');
+  c.setAttribute('r', geo.gap * 0.7);
+  c.setAttribute('cx', geo.x + geo.gap * 2.2);
+  c.setAttribute('cy', geo.y);
+  c.setAttribute('class', 'pitch-ball');
+  c.style.opacity = '0';
+  geo.svg.appendChild(c);
+  ball = { el: c, geo };
+  ballMidi = null;
+}
+function moveBall(midi) {
+  if (!ball || !ball.el.isConnected) return;
+  if (midi === null) { ball.el.style.opacity = '0.25'; return; }
+  // Da igual la octava: se compara con la octava de la nota escrita más cercana a lo que cantas
+  const target = midiOf(current().ask[0]);
+  let delta = midi - target;
+  delta -= 12 * Math.round(delta / 12);
+  ballMidi = ballMidi === null ? delta : ballMidi + (delta - ballMidi) * 0.35;   // suavizado
+  const shown = Math.max(-8, Math.min(8, ballMidi));
+  // 12 semitonos = 7 posiciones del pentagrama; cada posición es media separación entre líneas
+  ball.el.setAttribute('cy', ball.geo.y - shown * (7 / 12) * (ball.geo.gap / 2));
+  const off = Math.min(1, Math.abs(ballMidi) / 3);                             // a 3 semitonos o más, rojo
+  ball.el.style.fill = `hsl(${Math.round(130 * (1 - off))} 70% 45%)`;
+  ball.el.style.opacity = '1';
 }
 function singResult(ok) {
   const card = current();

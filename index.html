@@ -690,7 +690,9 @@ async function startMic() {
   if (mic) return true;
   if (!CAN_SING) return false;
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
+    // Sin cancelación de eco: en el móvil activa el modo "llamada", que corta y apaga el sonido del piano.
+    // No hace falta, porque mientras suena la nota el micrófono no cuenta.
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
     const ac = audio();
     const src = ac.createMediaStreamSource(stream);
     const an = ac.createAnalyser();

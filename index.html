@@ -158,6 +158,7 @@ footer.note a { color: inherit; }
 .card .corner { position: absolute; top: 2.6cqw; left: 3.4cqw; font-size: 2.6cqw; color: var(--muted); font-variant-numeric: tabular-nums; }
 .card .prompt { margin: 0; text-align: center; font-size: 4.4cqw; line-height: 1.2; }
 .card .prompt b { color: var(--accent); }
+.card .prompt .sing-name { font-size: 1.5em; vertical-align: -0.1em; margin-left: 0.15em; }
 .card .staff { flex: 1; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; }
 .card .staff svg { width: 100%; height: 100%; display: block; overflow: visible; }
 .card .chain { display: flex; align-items: baseline; justify-content: center; gap: 2cqw; font-weight: 700; }
@@ -824,7 +825,7 @@ function renderCardFace() {
   if (card.type === 'read') {
     el.innerHTML = `${corner}<p class="prompt">¿Qué nota es?</p><div class="staff"></div>`;
   } else if (card.type === 'sing') {
-    el.innerHTML = `${corner}<p class="prompt"><b>Canta</b> esta nota</p><div class="staff"></div>
+    el.innerHTML = `${corner}<p class="prompt">Canta esta nota: <b class="sing-name">${nameOf(card.ask[0])}</b></p><div class="staff"></div>
       <div class="tuner"><span class="heard" id="heard">…</span><div class="hold"><div id="hold"></div></div></div>
       <p class="tuner-note">Canta en la octava que te resulte cómoda.</p>`;
   } else {

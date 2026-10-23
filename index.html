@@ -1302,7 +1302,11 @@ drawIllustration();
 // Versión publicada: version.json lo rellena GitHub Pages en cada publicación
 fetch('version.json', { cache: 'no-store' })
   .then(r => r.ok ? r.json() : null)
-  .then(v => { if (v && v.fecha && !v.fecha.includes('{')) $('version').textContent = 'Versión ' + v.fecha + (v.commit ? ' · ' + v.commit : ''); })
+  .then(v => {
+    // Solo el código del cambio publicado; si GitHub no lo diera, la fecha
+    const id = v && (v.commit || v.fecha);
+    if (id && !id.includes('{')) $('version').textContent = 'Versión ' + id;
+  })
   .catch(() => {});
 
 // Modo sin conexión: solo cuando la página se sirve desde una web (no al abrir el archivo en local)

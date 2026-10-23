@@ -710,7 +710,7 @@ function detectPitch() {
   an.getFloatTimeDomainData(buf);
   let rms = 0;
   for (let i = 0; i < buf.length; i++) rms += buf[i] * buf[i];
-  if (Math.sqrt(rms / buf.length) < 0.01) return null;
+  if (Math.sqrt(rms / buf.length) < 0.006) return null;
   const sr = actx.sampleRate, W = buf.length >> 1;
   const maxTau = Math.min(W - 1, Math.floor(sr / 70)), minTau = Math.floor(sr / 1100);
   const d = new Float32Array(maxTau + 2);
@@ -724,7 +724,7 @@ function detectPitch() {
   for (let tau = 1; tau <= maxTau + 1; tau++) { run += d[tau]; d[tau] = run ? d[tau] * tau / run : 1; }
   let tau = -1;
   for (let t = minTau; t <= maxTau; t++) {
-    if (d[t] < 0.15) { while (t + 1 <= maxTau && d[t + 1] < d[t]) t++; tau = t; break; }
+    if (d[t] < 0.2) { while (t + 1 <= maxTau && d[t + 1] < d[t]) t++; tau = t; break; }
   }
   if (tau < 2) return null;
   const a = d[tau - 1], b = d[tau], c = d[tau + 1];
@@ -1004,9 +1004,14 @@ function advance() {
 }
 
 // ---------- Ficha de entonar ----------
-const HOLD_OK = 0.8, HOLD_WRONG = 1.6, SING_LIMIT = 25000;
+const HOLD_OK = 0.6, HOLD_WRONG = 2.2, SING_LIMIT = 25000;
 let listenTimer = null, ignoreUntil = 0, hold = 0, wrongPc = -1, wrongHold = 0, lastTick = 0;
-function targetPc() { return SEMIS[mod7(current().ask[0])]; }
+// Valen la nota y sus alteraciones (Sol, Sol♯, Sol♭), pero no otra nota natural: Mi♯ es Fa y no vale por Mi
+function accepted() {
+  const t = SEMIS[mod7(current().ask[0])], ok = [t];
+  for (const pc of [(t + 1) % 12, (t + 11) % 12]) if (!SEMIS.includes(pc)) ok.push(pc);
+  return ok;
+}
 // Suena la nota que hay que cantar
 function playHelp() {
   const secs = playMidi(comfy(current().ask[0]));
@@ -1031,14 +1036,14 @@ function listenTick() {
   if (now - startedAt > SING_LIMIT) return finishCard(false, `Se acabó el tiempo. Era ${nameOf(current().ask[0])}`);
   const f = detectPitch();
   if (!f) { heard.textContent = '…'; heard.className = 'heard'; hold = Math.max(0, hold - dt * 0.5); bar.style.width = (100 * hold / HOLD_OK) + '%'; return; }
-  const midi = 69 + 12 * Math.log2(f / 440), near = Math.round(midi), cents = (midi - near) * 100;
+  const near = Math.round(69 + 12 * Math.log2(f / 440));
   const pc = ((near % 12) + 12) % 12;
   heard.textContent = CHROMA[cfg.names][pc];
-  const good = pc === targetPc() && Math.abs(cents) <= 45;
+  const good = accepted().includes(pc);
   heard.className = 'heard ' + (good ? 'ok' : 'bad');
   if (good) { hold += dt; wrongHold = 0; }
   else {
-    hold = Math.max(0, hold - dt);
+    hold = Math.max(0, hold - dt * 0.5);
     if (pc === wrongPc) wrongHold += dt; else { wrongPc = pc; wrongHold = dt; }
   }
   bar.style.width = Math.min(100, 100 * hold / HOLD_OK) + '%';

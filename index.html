@@ -127,8 +127,10 @@ footer.note a { color: inherit; }
 .game {
   position: fixed; inset: 0; z-index: 10; background: var(--table); color: var(--fg);
   display: flex; flex-direction: column; overflow: auto;
-  padding: max(10px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(14px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) max(16px, env(safe-area-inset-right, 0px)) max(14px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
 }
+/* A pantalla completa, algunos móviles no informan del hueco de la cámara: se deja margen de sobra */
+:fullscreen .game { padding-top: max(44px, calc(env(safe-area-inset-top, 0px) + 12px)); }
 .topbar { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; font-size: 0.9rem; color: var(--muted); font-variant-numeric: tabular-nums; max-width: 640px; width: 100%; margin: 0 auto; }
 .topbar b { color: var(--fg); }
 .topbar .grow { flex: 1; }

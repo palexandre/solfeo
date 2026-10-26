@@ -414,7 +414,7 @@ footer.note a { color: inherit; }
   <footer class="note">
     <p>Puntuación: cada ficha acertada a la primera vale 100 puntos, y 50 si la aciertas en una ronda posterior. Si contestas rápido ganas hasta 50 más. Cada fallo resta 25.</p>
     <p>Entonar: da igual la octava en la que cantes. Mantén la nota afinada un momento hasta que la barra se llene. Si mantienes otra nota, cuenta como fallo. Necesita permiso para usar el micrófono.</p>
-    <p>Solfeo con metrónomo: tras un compás de cuenta, entona cada nota mientras dura; basta con estar en la nota algo más de la mitad de su tiempo. En los silencios no hay que cantar. Si una nota no suena a tiempo o cantas en un silencio, la ficha falla. Con auriculares funciona mejor.</p>
+    <p>Solfeo con metrónomo: tras un compás de cuenta, entona cada nota en su tiempo; basta con sostenerla afinada un momento. En los silencios no hay que cantar. Si una nota no suena a tiempo o cantas en un silencio, la ficha falla. Con auriculares funciona mejor.</p>
     <p>Teclado: las teclas 1 a 7 pulsan los botones de las notas de izquierda a derecha. Intro continúa (o comienza el solfeo) y Esc vuelve al inicio sin perder el mazo.</p>
     <p>Pentagramas dibujados con <a href="https://www.vexflow.com" target="_blank" rel="noopener">VexFlow</a> (licencia MIT) y la tipografía musical Bravura de Steinberg (SIL Open Font License 1.1).</p>
     <p>El mazo en curso, las opciones y tus récords se guardan en este navegador. Funciona sin conexión, y en el móvil puedes añadirla a la pantalla de inicio desde el menú del navegador.</p>
@@ -1189,8 +1189,8 @@ $('sing-ref').addEventListener('click', () => { if (!locked) playHelp(); });
 $('sing-giveup').addEventListener('click', () => { if (!locked) finishCard(false, `Era ${nameOf(current().ask[0])}`); });
 
 // ---------- Solfeo con metrónomo ----------
-const R_LATENCY = 0.08;   // s de retraso aproximado del micrófono
-const R_ATTACK = 0.12;    // s del principio de cada nota que no cuentan (la voz tarda en asentarse)
+const R_LATENCY = 0.15;   // s de retraso aproximado del micrófono en móviles
+const R_ATTACK = 0.05;    // s del principio de cada nota que no cuentan
 let rStates = [], rhGeo = null, rh = null;
 // Dibuja los dos compases y devuelve dónde queda cada nota o silencio
 function drawRhythm(el, card, states, W = 560) {
@@ -1266,7 +1266,7 @@ function startRhythm() {
   const out = ac.createGain();
   out.connect(ac.destination);
   for (let b = 0; b < 12; b++) clickAt(ac, out, countStart + b * spb, b % 4 === 0);
-  rh = { spb, countStart, t0, out, idx: -1, win: 0, inTune: 0, voiced: 0, last: ac.currentTime };
+  rh = { spb, countStart, t0, out, idx: -1, inTune: 0, voiced: 0, heard: {}, last: ac.currentTime };
   startedAt = performance.now();
   rh.timer = setInterval(rhythmTick, 25);
 }
@@ -1305,15 +1305,17 @@ function rhythmTick() {
   if (i !== rh.idx) {
     if (rh.idx >= 0 && !judgeRhythm(rh.idx)) return;
     if (i < 0) return rhythmDone();
-    rh.idx = i; rh.win = 0; rh.inTune = 0; rh.voiced = 0; ballMidi = null;
+    rh.idx = i; rh.inTune = 0; rh.voiced = 0; rh.heard = {}; ballMidi = null;
     setRState(i, 'cur');
   }
   const e = card.ev[i], into = (t - e.b) * rh.spb, dur = e.d * rh.spb;
   if (e.n !== null) {
     moveBall(sung, e.n);
-    if (into >= R_ATTACK) {
-      rh.win += dt;
-      if (sung !== null && accepted(e.n).includes(((Math.round(sung) % 12) + 12) % 12)) rh.inTune += dt;
+    if (into >= R_ATTACK && sung !== null) {
+      const pc = ((Math.round(sung) % 12) + 12) % 12;
+      rh.voiced += dt;
+      rh.heard[pc] = (rh.heard[pc] || 0) + dt;
+      if (accepted(e.n).includes(pc)) rh.inTune += dt;
     }
   } else {
     if (ball) ball.el.style.opacity = '0';
@@ -1324,13 +1326,19 @@ function rhythmTick() {
 function judgeRhythm(i) {
   const card = current(), e = card.ev[i];
   if (e.n !== null) {
-    const need = e.d < 1 ? 0.4 : 0.55;
-    if (rh.win > 0 && rh.inTune / rh.win >= need) { rStates[i] = 'ok'; return true; }
+    // Basta con sostener la nota correcta un rato dentro de su tiempo (aunque se cante algo picada)
+    const need = Math.min(0.22, 0.3 * e.d * rh.spb);
+    if (rh.inTune >= need) { rStates[i] = 'ok'; return true; }
     const k = card.ev.slice(0, i + 1).filter(x => x.n !== null).length;
     rStates[i] = 'bad';
+    // Explica qué ha pasado: no se te ha oído o has cantado otra nota
+    const top = Object.entries(rh.heard).sort((a, b) => b[1] - a[1])[0];
+    const why = rh.voiced < 0.08 ? 'no se te ha oído a tiempo'
+      : top && !accepted(e.n).includes(+top[0]) ? `has cantado ${CHROMA[cfg.names][+top[0]]}`
+      : 'ha durado demasiado poco';
     stopRhythm();
     playMidi(comfy(e.n), 0.15);
-    finishCard(false, `La ${k}.ª nota era ${nameOf(e.n)} y no ha sonado a tiempo`);
+    finishCard(false, `La ${k}.ª nota era ${nameOf(e.n)}: ${why}`);
     return false;
   }
   if (rh.voiced > 0.15) {

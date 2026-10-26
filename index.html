@@ -751,12 +751,14 @@ function stopMic() {
   mic = null;
 }
 // Algoritmo YIN: devuelve la frecuencia en Hz o null si no hay una nota clara
+let lastRms = 0;
 function detectPitch() {
   const { an, buf } = mic;
   an.getFloatTimeDomainData(buf);
   let rms = 0;
   for (let i = 0; i < buf.length; i++) rms += buf[i] * buf[i];
-  if (Math.sqrt(rms / buf.length) < 0.006) return null;
+  lastRms = Math.sqrt(rms / buf.length);
+  if (lastRms < 0.006) return null;
   const sr = actx.sampleRate, W = buf.length >> 1;
   const maxTau = Math.min(W - 1, Math.floor(sr / 70)), minTau = Math.floor(sr / 1100);
   const d = new Float32Array(maxTau + 2);
@@ -790,6 +792,8 @@ const RLEVELS = [
   { name: '4 · Nota nueva: La', notes: [33, 32, 30, 28], eighths: true },
   { name: '5 · Notas nuevas: Re y Fa', notes: [33, 32, 31, 30, 29, 28], eighths: true },
   { name: '6 · La blanca', notes: [33, 32, 31, 30, 29, 28], eighths: true, halves: true },
+  { name: '7 · Notas nuevas: Si y Do agudo', notes: [35, 34, 33, 32, 31, 30, 29, 28], eighths: true, halves: true },
+  { name: '8 · Notas nuevas: Re y Mi agudos', notes: [37, 36, 35, 34, 33, 32, 31, 30, 29, 28], eighths: true, halves: true },
 ];
 // Dos compases de 4/4 al azar con las figuras y notas del nivel. Cada evento: { n (null = silencio), b (pulso de inicio), d (duración en pulsos) }
 function makeRhythm() {
@@ -801,11 +805,13 @@ function makeRhythm() {
     return prev;
   };
   while (beat < 8) {
-    const x = Math.random();
-    let kind = 'q';
-    if (L.halves && beat % 2 === 0 && x < 0.18) kind = 'h';
-    else if (beat > 0 && beat < 7 && !lastRest && x < 0.36) kind = 'r';
-    else if (L.eighths && x < 0.62) kind = '8';
+    // Figura al azar con pesos: negra 30 %, corcheas 35 %, blanca 20 % (en tiempo fuerte), silencio 15 %
+    const opts = [['q', 30]];
+    if (L.eighths) opts.push(['8', 35]);
+    if (L.halves && beat % 2 === 0) opts.push(['h', 20]);
+    if (beat > 0 && beat < 7 && !lastRest) opts.push(['r', 15]);
+    let x = Math.random() * opts.reduce((a, o) => a + o[1], 0), kind = 'q';
+    for (const [k, w] of opts) { if ((x -= w) < 0) { kind = k; break; } }
     if (kind === 'h') { ev.push({ n: note(), b: beat, d: 2 }); beat += 2; }
     else if (kind === 'r') { ev.push({ n: null, b: beat, d: 1 }); beat += 1; }
     else if (kind === '8') { ev.push({ n: note(), b: beat, d: 0.5 }, { n: note(), b: beat + 0.5, d: 0.5 }); beat += 1; }
@@ -1325,11 +1331,19 @@ function rhythmTick() {
       const pc = ((Math.round(sung) % 12) + 12) % 12;
       rh.voiced += dt;
       rh.heard[pc] = (rh.heard[pc] || 0) + dt;
-      if (accepted(e.n).includes(pc)) rh.inTune += dt;
+      if (accepted(e.n).includes(pc)) {
+        rh.inTune += dt;
+        rh.level = rh.level ? rh.level * 0.9 + lastRms * 0.1 : lastRms;     // volumen con el que cantas
+      }
     }
   } else {
     if (ball) ball.el.style.opacity = '0';
-    if (sung !== null && into > 0.15 && into < dur - 0.1) rh.voiced += dt;
+    const pc = sung === null ? null : ((Math.round(sung) % 12) + 12) % 12;
+    const nearClick = Math.abs(t - Math.round(t)) * rh.spb < 0.12;         // el clic del metrónomo no es voz
+    const loud = lastRms > Math.max(0.015, 0.35 * (rh.level || 0.04));     // ruido de fondo o respiración, no
+    const steady = pc !== null && pc === rh.prevPc;                         // una voz mantiene el tono entre lecturas
+    if (steady && loud && !nearClick && into > 0.25 && into < dur - 0.12) rh.voiced += dt;
+    rh.prevPc = pc;
   }
 }
 // Al acabar cada nota o silencio: ¿se ha cumplido?
@@ -1351,7 +1365,8 @@ function judgeRhythm(i) {
     finishCard(false, `La ${k}.ª nota era ${nameOf(e.n)}: ${why}`);
     return false;
   }
-  if (rh.voiced > 0.15) {
+  const restWin = Math.max(0, e.d * rh.spb - 0.37);
+  if (rh.voiced > Math.min(0.3, 0.5 * restWin)) {
     rStates[i] = 'bad';
     stopRhythm();
     finishCard(false, `Has cantado en el silencio del pulso ${Math.floor(e.b) % 4 + 1}`);

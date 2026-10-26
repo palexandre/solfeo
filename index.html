@@ -284,7 +284,7 @@ footer.note a { color: inherit; }
         <b>Leer la nota</b><span>Una nota en el pentagrama: ¿cuál es?</span>
         <div class="illus" id="illus-read" aria-hidden="true"></div></label>
       <label class="mode"><input type="checkbox" name="type" value="chain">
-        <b>Escala en cadena</b><span>Recita la escala hacia arriba o hacia abajo desde una nota.</span>
+        <b>Escala en cadena</b><span>Notas seguidas de la escala en el pentagrama: nómbralas de izquierda a derecha.</span>
         <div class="illus" aria-hidden="true">
           <svg viewBox="0 -24 170 112">
             <path d="M6 80 H38 V62 H70 V44 H102 V26 H134 V8 H164" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
@@ -361,11 +361,11 @@ footer.note a { color: inherit; }
       </div>
       <div class="field opt-chain">
         <label for="opt-step">Recorrido de la escala</label>
-        <span class="hint">En clave de Sol: Mi, Sol, Si, Re, Fa van en línea; Fa, La, Do, Mi, en espacio.</span>
+        <span class="hint">Saltando una nota, la escala va solo por las líneas o solo por los espacios.</span>
         <select id="opt-step">
+          <option value="mixed">Mezclado</option>
           <option value="steps">Todas las notas (por grados)</option>
           <option value="thirds">Solo líneas o solo espacios</option>
-          <option value="mixed">Mezclado</option>
         </select>
       </div>
       <div class="field opt-chain">
@@ -671,7 +671,7 @@ const SPEED = { read: [2000, 8000], chain: [900, 3500], sing: [3000, 12000], rhy
 
 // ---------- Opciones, partida y récords en localStorage ----------
 const CFG_KEY = 'solfeo-fichas-v4', GAME_KEY = 'solfeo-fichas-partida-v5', REC_KEY = 'solfeo-fichas-records-v4';
-const DEFAULTS = { types: ['read'], clefs: ['treble', 'bass'], ledger: 1, size: 7, names: 'es', dir: 'both', len: 5, sound: 'on', rlevel: 1, bpm: 60, tune: 'normal', step: 'steps' };
+const DEFAULTS = { types: ['read'], clefs: ['treble', 'bass'], ledger: 1, size: 7, names: 'es', dir: 'both', len: 5, sound: 'on', rlevel: 1, bpm: 60, tune: 'normal', step: 'mixed' };
 function load(key, fallback) { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch (e) { return fallback; } }
 function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 // Entonar solo existe si el navegador puede usar el micrófono
@@ -683,7 +683,7 @@ if (!cfg.types.length) cfg.types = DEFAULTS.types.slice();
 cfg.clefs = (cfg.clefs || []).filter(c => CLEFS[c]);
 if (!cfg.clefs.length) cfg.clefs = DEFAULTS.clefs.slice();
 let game = load(GAME_KEY, null);
-if (!game || game.v !== 5 || !Array.isArray(game.cards)) game = null;
+if (!game || game.v !== 5 || !Array.isArray(game.cards) || game.cards.some(c => c.type === 'chain' && !c.c)) game = null;
 let records = load(REC_KEY, {});
 const saveCfg = () => store(CFG_KEY, cfg), saveGame = () => store(GAME_KEY, game), saveRecords = () => store(REC_KEY, records);
 
@@ -703,7 +703,7 @@ function dirs() { return cfg.dir === 'up' ? [1] : cfg.dir === 'down' ? [-1] : [1
 function rangeOf(c) { const span = 2 * cfg.ledger + 1; return [CLEFS[c].bottom - span, CLEFS[c].top + span]; }
 const midiOf = n => 12 * (Math.floor(n / 7) + 1) + SEMIS[mod7(n)];
 const listTypes = types => types.map(t => TYPES[t]).join(', ').replace(/, ([^,]*)$/, ' y $1');
-const usesStaff = types => types.includes('read') || types.includes('sing');
+const usesStaff = types => types.includes('read') || types.includes('sing') || types.includes('chain');
 
 // ---------- Piano ----------
 // Sonido sintetizado (sin archivos, para que funcione sin conexión): parciales con caída lenta, como una cuerda percutida
@@ -842,12 +842,14 @@ function makeRhythm() {
 function makeCard(type) {
   if (type === 'rhythm') return makeRhythm();
   if (type === 'chain') {
-    const d = pick(dirs()), len = rand(Math.min(3, cfg.len), cfg.len);
-    // Por grados (todas las notas) o de tercera en tercera: en el pentagrama, solo líneas o solo espacios
+    // Notas seguidas de la escala en el pentagrama: por grados, o saltando una (solo líneas o solo espacios)
     const k = cfg.step === 'thirds' ? 2 : cfg.step === 'mixed' ? pick([1, 2]) : 1;
-    const n0 = rand(0, 6) + 28;                           // octava 4: en clave de Sol, Mi4 está en la primera línea
-    const seq = Array.from({ length: len }, (_, i) => n0 + d * k * (i + 1));
-    return { type, start: n0, d, k, notes: [n0, ...seq], ask: seq };
+    const c = pick(cfg.clefs), [lo, hi] = rangeOf(c), d = pick(dirs());
+    const len = Math.min(rand(Math.min(3, cfg.len), cfg.len), Math.floor((hi - lo) / k) + 1);   // que quepa en el pentagrama
+    const span = k * (len - 1);
+    const first = d > 0 ? rand(lo, hi - span) : rand(lo + span, hi);
+    const notes = Array.from({ length: len }, (_, i) => first + d * k * i);
+    return { type, c, d, k, notes, ask: notes };
   }
   const c = pick(cfg.clefs), [lo, hi] = rangeOf(c);
   const n = rand(lo, hi);
@@ -943,19 +945,19 @@ function renderCardFace() {
       <div class="tuner"><span class="heard" id="heard">…</span><div class="hold"><div id="hold"></div></div></div>
       <p class="tuner-note">La bola sigue tu voz: si está por encima de la nota, baja; si está por debajo, sube.</p>`;
   } else {
-    const n = card.ask.length;
-    const slots = `<div class="slot given">${nameOf(card.start)}</div>` + card.ask.map((note, i) => {
+    const slots = card.ask.map((note, i) => {
       const m = marks[i];
       const cls = m === 'ok' ? 'ok' : m === 'bad' ? 'bad' : m === 'reveal' ? 'reveal' : (i === step && !locked ? 'cur' : '');
       return `<div class="slot ${cls}">${m ? nameOf(note) : ''}</div>`;
     }).join('');
-    // En clave de Sol, las notas de la octava 4 a distancia par de Mi4 (índice 30) están en línea
-    const where = card.k === 2 ? ((card.start - 30) % 2 === 0 ? ' por las líneas' : ' por los espacios') : '';
-    el.innerHTML = `${corner}<p class="prompt">Desde ${nameOf(card.start)}, <b>${card.d > 0 ? 'sube' : 'baja'} ${n} ${n === 1 ? 'nota' : 'notas'}${where}</b></p>
-      <div class="chain"><span class="from">${nameOf(card.start)}</span><span class="dir">${card.d > 0 ? '↗' : '↘'}</span></div><div class="slots">${slots}</div>`;
+    el.innerHTML = `${corner}<p class="prompt">Nombra las notas <b>de izquierda a derecha</b></p><div class="staff"></div><div class="slots">${slots}</div>`;
   }
   const staffEl = el.querySelector('.staff');
-  if (staffEl) {
+  if (staffEl && card.type === 'chain') {
+    const okC = cssVar('--ok'), badC = cssVar('--bad'), curC = cssVar('--gold');   // la que toca, en dorado
+    const notes = card.notes.map((n, i) => ({ n, color: marks[i] === 'ok' ? okC : marks[i] === 'bad' ? badC : i === step && !locked ? curC : null }));
+    drawStaff(staffEl, card.c, notes, 200 + notes.length * 40);
+  } else if (staffEl) {
     const m = marks[0];
     const color = m === 'ok' ? cssVar('--ok') : m === 'bad' ? cssVar('--bad') : null;
     const geo = drawStaff(staffEl, card.c, [{ n: card.notes[0], color }]);
@@ -1009,7 +1011,6 @@ function showCard(animate) {
   if (animate) { const el = $('card'); el.classList.add('enter'); el.addEventListener('animationend', () => el.classList.remove('enter'), { once: true }); }
   startedAt = performance.now();
   if (sing) startSingCard();
-  else if (card.type === 'chain') playNote(card.start);
 }
 function showBetween() {
   clearTimeout(waitTimer); stopListening();
@@ -1522,7 +1523,7 @@ function showResults() {
   $('hard-wrap').hidden = !hard.length;
   $('hard').innerHTML = hard.map(({ c, n }) => {
     const label = c.type === 'chain'
-      ? `${nameOf(c.start)} ${c.d > 0 ? '↗' : '↘'} ${c.ask.map(nameOf).join(' ')}`
+      ? c.ask.map(nameOf).join(' ')
       : c.type === 'rhythm' ? `Solfeo, nivel ${c.level}`
       : (c.type === 'sing' ? 'Cantar ' : '') + nameOf(c.ask[0]);
     return `<li>${c.c ? '<div class="mini"></div>' : ''}<span>${label} · ${n} ${n === 1 ? 'fallo' : 'fallos'}</span></li>`;
@@ -1530,6 +1531,7 @@ function showResults() {
   $('hard').querySelectorAll('.mini').forEach((m, i) => {
     const c = hard.filter(h => h.c.c)[i].c;
     if (c.type === 'rhythm') { m.classList.add('mini-wide'); drawRhythm(m, c, []); }
+    else if (c.type === 'chain') { m.classList.add('mini-wide'); drawStaff(m, c.c, c.notes.map(n => ({ n })), 200 + c.notes.length * 40); }
     else drawStaff(m, c.c, [{ n: c.notes[0] }], 150);
   });
   // El foco va al botón sin desplazar la vista: los resultados se ven desde arriba

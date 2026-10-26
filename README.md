@@ -7,7 +7,7 @@ Practica la lectura de notas, la escala y la entonación con un mazo de fichas: 
 ## Ejercicios
 
 - **Leer la nota:** una nota en el pentagrama; pulsa su nombre.
-- **Escala en cadena:** desde una nota, recita la escala subiendo o bajando.
+- **Escala en cadena:** notas seguidas de la escala en el pentagrama, por grados o saltando una (solo líneas o solo espacios); nómbralas de izquierda a derecha.
 - **Solfeo con metrónomo:** dos compases generados por niveles (negras y silencios, corcheas, nuevas notas, blancas). Tras un compás de cuenta, entona cada nota a tempo y calla en los silencios.
 - **Entonar:** suena la nota de la ficha y la cantas; el micrófono comprueba si es la correcta.
 

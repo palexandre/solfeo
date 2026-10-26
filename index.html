@@ -444,7 +444,7 @@ footer.note a { color: inherit; }
     </div>
     <div class="answers" id="answers"></div>
     <div class="sing-controls" id="rhythm-controls" hidden>
-      <button type="button" id="rhythm-listen">Escuchar</button>
+      <button type="button" id="rhythm-listen">▶ Reproducir</button>
       <button type="button" class="primary" id="rhythm-go">Comenzar</button>
     </div>
     <div class="sing-controls" id="sing-controls" hidden>
@@ -699,7 +699,7 @@ function audio() {
   if (actx.state === 'suspended') actx.resume();
   return actx;
 }
-function playMidi(m, delay = 0, dur = 1.6, ac = audio()) {
+function playMidi(m, delay = 0, dur = 1.6, ac = audio(), dest = null) {
   if (!ac) return 0;
   const t0 = ac.currentTime + delay + 0.02, f = 440 * Math.pow(2, (m - 69) / 12);
   const end = t0 + dur, release = t0 + dur - 0.45;
@@ -708,7 +708,7 @@ function playMidi(m, delay = 0, dur = 1.6, ac = audio()) {
   lp.type = 'lowpass';
   lp.frequency.setValueAtTime(Math.min(12000, f * 12), t0);
   lp.frequency.setTargetAtTime(Math.max(600, f * 4), t0, 0.35);
-  out.connect(lp).connect(ac.destination);
+  out.connect(lp).connect(dest || ac.destination);
   // Ataque rápido, la nota se mantiene algo más de un segundo apagándose poco a poco y luego se suelta
   out.gain.setValueAtTime(0.0001, t0);
   out.gain.linearRampToValueAtTime(0.18, t0 + 0.008);
@@ -910,7 +910,7 @@ function renderCardFace() {
   const el = $('card');
   const corner = `<span class="corner">${game.pos + 1} / ${game.queue.length}</span>`;
   if (card.type === 'rhythm') {
-    el.innerHTML = `${corner}<p class="prompt">Lee y entona a tempo · <b>negra = ${card.bpm}</b></p><div class="staff rhythm"></div><div class="count" id="count"></div><p class="tuner-note" id="count-hint">${rh ? '' : 'Pulsa Comenzar: suena la primera nota, un compás de cuenta y empiezas tras el 4.'}</p>`;
+    el.innerHTML = `${corner}<p class="prompt">Lee y entona a tempo · <b>negra = ${card.bpm}</b></p><div class="staff rhythm"></div><div class="count" id="count"></div><p class="tuner-note" id="count-hint">${rh || rp ? '' : 'Pulsa Comenzar: suena la primera nota, un compás de cuenta y empiezas tras el 4.'}</p>`;
     rhGeo = drawRhythm(el.querySelector('.staff'), card, rStates);
     if (rhGeo) addPitchBall({ svg: rhGeo.svg, gap: rhGeo.gap, x: rhGeo.ev[0].x, y: rhGeo.ev[0].y });
     return;
@@ -1129,7 +1129,7 @@ function startSingCard() {
   lastTick = performance.now();
   listenTimer = setInterval(listenTick, 50);
 }
-function stopListening() { clearInterval(listenTimer); listenTimer = null; stopRhythm(); }
+function stopListening() { clearInterval(listenTimer); listenTimer = null; stopRhythm(); stopPlayback(); }
 function listenTick() {
   if (!mic || locked) return;
   const now = performance.now(), dt = (now - lastTick) / 1000;
@@ -1256,16 +1256,61 @@ function clickAt(ac, out, when, accent) {
   o.start(when); o.stop(when + 0.06);
 }
 // Escuchar: el ejercicio tocado al piano a su tempo, sin metrónomo
+// Reproducir: el ejercicio tal como debe sonar, con compás de cuenta, metrónomo y la nota que suena marcada
+let rp = null;
+function stopPlayback() {
+  if (!rp) return;
+  clearInterval(rp.timer);
+  try { rp.out.disconnect(); } catch (e) {}   // corta las notas y clics que quedaban
+  rp = null;
+  $('rhythm-listen').textContent = '▶ Reproducir';
+  $('rhythm-go').disabled = locked;
+  if (game?.phase === 'play' && current()?.type === 'rhythm' && !locked && !rh) {
+    rStates = current().ev.map(() => null);
+    renderCardFace();
+  }
+}
 $('rhythm-listen').addEventListener('click', () => {
+  if (rp) return stopPlayback();
   const card = current();
   if (locked || rh || card.type !== 'rhythm') return;
-  const spb = 60 / card.bpm;
-  card.ev.forEach(e => { if (e.n !== null) playMidi(comfy(e.n), 0.1 + e.b * spb, Math.max(0.55, e.d * spb)); });
+  const ac = audio(), spb = 60 / card.bpm;
+  const out = ac.createGain();
+  out.connect(ac.destination);
+  const countStart = ac.currentTime + 0.15, t0 = countStart + 4 * spb;
+  for (let b = 0; b < 12; b++) clickAt(ac, out, countStart + b * spb, b % 4 === 0);
+  card.ev.forEach(e => {
+    if (e.n !== null) playMidi(comfy(e.n), t0 + e.b * spb - ac.currentTime - 0.02, Math.max(0.5, e.d * spb), ac, out);
+  });
+  rp = { out, countStart, t0, spb, idx: -1 };
+  $('rhythm-listen').textContent = '■ Parar';
+  $('rhythm-go').disabled = true;
+  rp.timer = setInterval(() => {
+    const heardNow = ac.currentTime - Math.min(0.4, (ac.outputLatency || 0) + (ac.baseLatency || 0));
+    const count = $('count'), hint = $('count-hint');
+    if (heardNow < rp.t0) {
+      if (count) count.textContent = heardNow >= rp.countStart ? String(Math.floor((heardNow - rp.countStart) / rp.spb) + 1) : '';
+      if (hint) hint.textContent = 'Así suena: escucha y sigue la partitura';
+      return;
+    }
+    const t = (heardNow - rp.t0) / rp.spb;
+    if (t >= 8) return stopPlayback();
+    const i = card.ev.findIndex(e => t >= e.b && t < e.b + e.d);
+    if (i !== rp.idx) {
+      rp.idx = i;
+      rStates = card.ev.map((_, k) => (k === i ? 'cur' : null));
+      renderCardFace();
+      const c = $('count'), h = $('count-hint');
+      if (c) c.textContent = '';
+      if (h) h.textContent = 'Así suena: escucha y sigue la partitura';
+    }
+  }, 30);
 });
 // Comenzar: suena la primera nota, un compás de cuenta y empieza la lectura con el metrónomo
 function startRhythm() {
   const card = current();
   if (locked || rh || card.type !== 'rhythm' || game.phase !== 'play') return;
+  stopPlayback();
   const ac = audio();
   ['rhythm-go', 'rhythm-listen'].forEach(id => { $(id).disabled = true; });
   const spb = 60 / card.bpm;

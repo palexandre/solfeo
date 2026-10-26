@@ -904,7 +904,7 @@ function renderCardFace() {
   const el = $('card');
   const corner = `<span class="corner">${game.pos + 1} / ${game.queue.length}</span>`;
   if (card.type === 'rhythm') {
-    el.innerHTML = `${corner}<p class="prompt">Lee y entona a tempo · <b>negra = ${card.bpm}</b></p><div class="staff rhythm"></div><div class="count" id="count"></div>`;
+    el.innerHTML = `${corner}<p class="prompt">Lee y entona a tempo · <b>negra = ${card.bpm}</b></p><div class="staff rhythm"></div><div class="count" id="count"></div><p class="tuner-note" id="count-hint">${rh ? '' : 'Pulsa Comenzar: suena la primera nota, un compás de cuenta y empiezas tras el 4.'}</p>`;
     rhGeo = drawRhythm(el.querySelector('.staff'), card, rStates);
     if (rhGeo) addPitchBall({ svg: rhGeo.svg, gap: rhGeo.gap, x: rhGeo.ev[0].x, y: rhGeo.ev[0].y });
     return;
@@ -1189,7 +1189,9 @@ $('sing-ref').addEventListener('click', () => { if (!locked) playHelp(); });
 $('sing-giveup').addEventListener('click', () => { if (!locked) finishCard(false, `Era ${nameOf(current().ask[0])}`); });
 
 // ---------- Solfeo con metrónomo ----------
-const R_LATENCY = 0.15;   // s de retraso aproximado del micrófono en móviles
+// Retraso total entre que se programa un clic y que se oye tu voz por el micrófono:
+// lo que tarda el altavoz (lo informa el navegador) más lo que tarda el micrófono (estimado)
+const latencyOf = ac => Math.min(0.6, (ac.outputLatency || 0) + (ac.baseLatency || 0) + 0.1);
 const R_ATTACK = 0.05;    // s del principio de cada nota que no cuentan
 let rStates = [], rhGeo = null, rh = null;
 // Dibuja los dos compases y devuelve dónde queda cada nota o silencio
@@ -1266,7 +1268,7 @@ function startRhythm() {
   const out = ac.createGain();
   out.connect(ac.destination);
   for (let b = 0; b < 12; b++) clickAt(ac, out, countStart + b * spb, b % 4 === 0);
-  rh = { spb, countStart, t0, out, idx: -1, inTune: 0, voiced: 0, heard: {}, last: ac.currentTime };
+  rh = { spb, countStart, t0, out, lat: latencyOf(ac), idx: -1, inTune: 0, voiced: 0, heard: {}, last: ac.currentTime };
   startedAt = performance.now();
   rh.timer = setInterval(rhythmTick, 25);
 }
@@ -1294,10 +1296,18 @@ function rhythmTick() {
   const card = current(), now = actx.currentTime, count = $('count');
   const dt = now - rh.last;
   rh.last = now;
-  if (now < rh.countStart) { if (count) count.textContent = ''; return; }
-  if (now < rh.t0) { if (count) count.textContent = String(Math.floor((now - rh.countStart) / rh.spb) + 1); return; }
-  if (count) count.textContent = '';
-  const t = (now - R_LATENCY - rh.t0) / rh.spb;   // pulso del ejercicio, compensando el retraso del micrófono
+  // Lo que se ve va al ritmo de lo que se oye (el altavoz también tiene retraso)
+  const heardNow = now - Math.min(0.4, (actx.outputLatency || 0) + (actx.baseLatency || 0));
+  const hint = $('count-hint');
+  if (heardNow < rh.countStart) { if (count) count.textContent = ''; if (hint) hint.textContent = 'Escucha la primera nota…'; return; }
+  if (heardNow < rh.t0) {
+    if (count) count.textContent = String(Math.floor((heardNow - rh.countStart) / rh.spb) + 1);
+    if (hint) hint.textContent = 'Cuenta… empieza a cantar después del 4';
+    return;
+  }
+  if (count) count.textContent = heardNow - rh.t0 < 0.6 * rh.spb ? '¡Ya!' : '';
+  if (hint) hint.textContent = '';
+  const t = (now - rh.lat - rh.t0) / rh.spb;   // pulso del ejercicio, compensando el retraso de altavoz y micrófono
   if (t < 0) return;
   const f = mic ? detectPitch() : null;
   const sung = f ? 69 + 12 * Math.log2(f / 440) : null;

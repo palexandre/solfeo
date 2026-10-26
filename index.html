@@ -80,7 +80,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-size: 1.1rem; padding: 14px 22px; }
 button.primary:hover { filter: brightness(1.08); }
 button.big { font-size: 1.25rem; padding: 18px 28px; width: 100%; }
-button:disabled { cursor: default; }
+button:disabled { cursor: default; opacity: .55; }
 button svg, .btn svg { width: 20px; height: 20px; flex: none; }
 .btn.whatsapp { background: #25d366; border-color: #25d366; color: #0b2e17; }
 .btn.whatsapp:hover { filter: brightness(1.05); border-color: #25d366; }
@@ -89,7 +89,7 @@ button svg, .btn svg { width: 20px; height: 20px; flex: none; }
 .resume { display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 14px; padding: 14px 16px; }
 .resume p { margin: 0; flex: 1 1 220px; min-width: 0; }
 .resume .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
 .mode { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 14px; cursor: pointer; position: relative; }
 .mode:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
 /* Marca de elegido en la esquina */
@@ -221,6 +221,10 @@ footer.note a { color: inherit; }
 .answers button.bad { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
 @media (hover: none) { .answers button small { display: none; } }
 .sing-controls { width: min(580px, 100%); display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+/* Ficha ancha de solfeo con metrónomo */
+.deck.wide { aspect-ratio: 16 / 9; width: min(820px, 100%, calc((100dvh - 300px) * 16 / 9)); }
+.card .count { position: absolute; top: 2.4cqw; right: 4cqw; font-size: 9cqw; font-weight: 700; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; min-width: 1ch; text-align: right; }
+.card .staff.rhythm { flex: 1; }
 .sing-controls button { flex: 1 1 160px; }
 
 /* Resultados */
@@ -248,6 +252,7 @@ footer.note a { color: inherit; }
 .hard li span { color: var(--bad); font-weight: 700; }
 .mini { width: 120px; max-width: 100%; }
 .mini svg { width: 100%; height: auto; display: block; overflow: visible; }
+.mini.mini-wide { width: 260px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, .card { animation: none !important; transition: none !important; }
@@ -288,6 +293,23 @@ footer.note a { color: inherit; }
               <g transform="translate(86 36)"><ellipse rx="6.5" ry="4.6" transform="rotate(-22)"/><path d="M5.6 -1.5 V-24"/></g>
               <g transform="translate(118 18)"><ellipse rx="6.5" ry="4.6" transform="rotate(-22)"/><path d="M5.6 -1.5 V-24"/></g>
               <g transform="translate(149 0)"><ellipse rx="6.5" ry="4.6" transform="rotate(-22)"/><path d="M5.6 -1.5 V-22"/></g>
+            </g>
+          </svg>
+        </div></label>
+      <label class="mode"><input type="checkbox" name="type" value="rhythm">
+        <b>Solfeo con metrónomo</b><span>Lee dos compases a tempo y entona cada nota justo cuando toca. Los silencios, callado.</span>
+        <div class="illus" aria-hidden="true">
+          <svg viewBox="0 0 170 92">
+            <g fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+              <path d="M30 86 L44 10 H58 L72 86 Z"/>
+              <path d="M36 66 H66"/>
+              <path d="M51 66 L64 20"/>
+            </g>
+            <circle cx="61" cy="30" r="4" fill="currentColor"/>
+            <g class="ink-accent">
+              <g transform="translate(96 60)"><ellipse rx="6" ry="4.3" transform="rotate(-22)"/><path d="M5.2 -1.5 V-26"/></g>
+              <g transform="translate(118 52)"><ellipse rx="6" ry="4.3" transform="rotate(-22)"/><ellipse cx="20" cy="-6" rx="6" ry="4.3" transform="rotate(-22)"/><path d="M5.2 -1.5 V-34 L25.5 -38 V-10"/></g>
+              <path d="M160 40 l-6 7 l6 5 l-6 8" stroke-width="2.6" fill="none"/>
             </g>
           </svg>
         </div></label>
@@ -351,6 +373,20 @@ footer.note a { color: inherit; }
         <label for="opt-size">Fichas por mazo</label>
         <input type="number" id="opt-size" min="3" max="100" step="1">
       </div>
+      <div class="field opt-rhythm">
+        <label for="opt-rlevel">Nivel del solfeo</label>
+        <select id="opt-rlevel"></select>
+      </div>
+      <div class="field opt-rhythm">
+        <label for="opt-bpm">Tempo</label>
+        <select id="opt-bpm">
+          <option value="50">Negra = 50</option>
+          <option value="60">Negra = 60</option>
+          <option value="72">Negra = 72</option>
+          <option value="84">Negra = 84</option>
+          <option value="96">Negra = 96</option>
+        </select>
+      </div>
       <div class="field opt-answer">
         <label for="opt-sound">Sonido</label>
         <span class="hint">Suena cada nota al acertarla o al fallar.</span>
@@ -378,7 +414,8 @@ footer.note a { color: inherit; }
   <footer class="note">
     <p>Puntuación: cada ficha acertada a la primera vale 100 puntos, y 50 si la aciertas en una ronda posterior. Si contestas rápido ganas hasta 50 más. Cada fallo resta 25.</p>
     <p>Entonar: da igual la octava en la que cantes. Mantén la nota afinada un momento hasta que la barra se llene. Si mantienes otra nota, cuenta como fallo. Necesita permiso para usar el micrófono.</p>
-    <p>Teclado: las teclas 1 a 7 pulsan los botones de las notas de izquierda a derecha. Intro continúa y Esc vuelve al inicio sin perder el mazo.</p>
+    <p>Solfeo con metrónomo: tras un compás de cuenta, entona cada nota mientras dura; basta con estar en la nota algo más de la mitad de su tiempo. En los silencios no hay que cantar. Si una nota no suena a tiempo o cantas en un silencio, la ficha falla. Con auriculares funciona mejor.</p>
+    <p>Teclado: las teclas 1 a 7 pulsan los botones de las notas de izquierda a derecha. Intro continúa (o comienza el solfeo) y Esc vuelve al inicio sin perder el mazo.</p>
     <p>Pentagramas dibujados con <a href="https://www.vexflow.com" target="_blank" rel="noopener">VexFlow</a> (licencia MIT) y la tipografía musical Bravura de Steinberg (SIL Open Font License 1.1).</p>
     <p>El mazo en curso, las opciones y tus récords se guardan en este navegador. Funciona sin conexión, y en el móvil puedes añadirla a la pantalla de inicio desde el menú del navegador.</p>
   </footer>
@@ -406,6 +443,10 @@ footer.note a { color: inherit; }
       <div class="pile right" id="pile-ok"><div class="stack"><i></i><i></i></div><div><b id="pile-ok-n">0</b>aprendidas</div></div>
     </div>
     <div class="answers" id="answers"></div>
+    <div class="sing-controls" id="rhythm-controls" hidden>
+      <button type="button" id="rhythm-listen">Escuchar</button>
+      <button type="button" class="primary" id="rhythm-go">Comenzar</button>
+    </div>
     <div class="sing-controls" id="sing-controls" hidden>
       <button type="button" id="sing-ref">Escuchar otra vez</button>
       <button type="button" id="sing-giveup">No me sale</button>
@@ -600,7 +641,7 @@ const CLEFS = {
   alto:   { long: 'clave de Do en 3.ª', bottom: 3 * 7 + 3, top: 4 * 7 + 4 },  // Fa3 – Sol4
   tenor:  { long: 'clave de Do en 4.ª', bottom: 3 * 7 + 1, top: 4 * 7 + 2 },  // Re3 – Mi4
 };
-const TYPES = { read: 'Lectura', chain: 'Escala', sing: 'Entonar' };
+const TYPES = { read: 'Lectura', chain: 'Escala', rhythm: 'Solfeo con metrónomo', sing: 'Entonar' };
 const NAMES = { es: ['Do', 'Re', 'Mi', 'Fa', 'Sol', 'La', 'Si'], en: ['C', 'D', 'E', 'F', 'G', 'A', 'B'] };
 const CHROMA = { es: ['Do', 'Do♯', 'Re', 'Re♯', 'Mi', 'Fa', 'Fa♯', 'Sol', 'Sol♯', 'La', 'La♯', 'Si'], en: ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'] };
 const VF_STEP = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
@@ -608,17 +649,18 @@ const SEMIS = [0, 2, 4, 5, 7, 9, 11];
 
 // Puntuación. La rapidez se mide por nota: rápido = bonus completo, lento = nada.
 const PTS_FIRST = 100, PTS_LATER = 50, PTS_SPEED = 50, PTS_MISS = 25, MAX_NOTE_MS = 30000;
-const SPEED = { read: [2000, 8000], chain: [900, 3500], sing: [3000, 12000] };
+const SPEED = { read: [2000, 8000], chain: [900, 3500], sing: [3000, 12000], rhythm: [1e9, 2e9] };   // en el solfeo el tempo lo marca el metrónomo
 
 // ---------- Opciones, partida y récords en localStorage ----------
 const CFG_KEY = 'solfeo-fichas-v4', GAME_KEY = 'solfeo-fichas-partida-v5', REC_KEY = 'solfeo-fichas-records-v4';
-const DEFAULTS = { types: ['read'], clefs: ['treble', 'bass'], ledger: 1, size: 7, names: 'es', dir: 'both', len: 5, sound: 'on' };
+const DEFAULTS = { types: ['read'], clefs: ['treble', 'bass'], ledger: 1, size: 7, names: 'es', dir: 'both', len: 5, sound: 'on', rlevel: 1, bpm: 60 };
 function load(key, fallback) { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch (e) { return fallback; } }
 function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 // Entonar solo existe si el navegador puede usar el micrófono
 const CAN_SING = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 let cfg = { ...DEFAULTS, ...load(CFG_KEY, {}) };
-cfg.types = (cfg.types || []).filter(t => TYPES[t] && (t !== 'sing' || CAN_SING));
+const NEEDS_MIC = t => t === 'sing' || t === 'rhythm';
+cfg.types = (cfg.types || []).filter(t => TYPES[t] && (!NEEDS_MIC(t) || CAN_SING));
 if (!cfg.types.length) cfg.types = DEFAULTS.types.slice();
 cfg.clefs = (cfg.clefs || []).filter(c => CLEFS[c]);
 if (!cfg.clefs.length) cfg.clefs = DEFAULTS.clefs.slice();
@@ -739,7 +781,42 @@ function detectPitch() {
 
 // ---------- Mazo ----------
 // Cada ficha tiene su tipo, "notes" (las que se dibujan o recitan) y "ask" (las que hay que nombrar o cantar, en orden)
+// Niveles del solfeo con metrónomo: cada uno añade una figura o una nota (índice diatónico: Do4 = 28)
+const RLEVELS = [
+  null,
+  { name: '1 · Negras y silencios · Sol y Mi', notes: [32, 30] },
+  { name: '2 · Corcheas · Sol y Mi', notes: [32, 30], eighths: true },
+  { name: '3 · Nota nueva: Do', notes: [32, 30, 28], eighths: true },
+  { name: '4 · Nota nueva: La', notes: [33, 32, 30, 28], eighths: true },
+  { name: '5 · Notas nuevas: Re y Fa', notes: [33, 32, 31, 30, 29, 28], eighths: true },
+  { name: '6 · La blanca', notes: [33, 32, 31, 30, 29, 28], eighths: true, halves: true },
+];
+// Dos compases de 4/4 al azar con las figuras y notas del nivel. Cada evento: { n (null = silencio), b (pulso de inicio), d (duración en pulsos) }
+function makeRhythm() {
+  const L = RLEVELS[cfg.rlevel] || RLEVELS[1], ev = [];
+  let beat = 0, prev = null, lastRest = false;
+  const note = () => {
+    const near = L.notes.filter(n => prev === null || Math.abs(n - prev) <= 2);
+    prev = pick(near.length ? near : L.notes);
+    return prev;
+  };
+  while (beat < 8) {
+    const x = Math.random();
+    let kind = 'q';
+    if (L.halves && beat % 2 === 0 && x < 0.18) kind = 'h';
+    else if (beat > 0 && beat < 7 && !lastRest && x < 0.36) kind = 'r';
+    else if (L.eighths && x < 0.62) kind = '8';
+    if (kind === 'h') { ev.push({ n: note(), b: beat, d: 2 }); beat += 2; }
+    else if (kind === 'r') { ev.push({ n: null, b: beat, d: 1 }); beat += 1; }
+    else if (kind === '8') { ev.push({ n: note(), b: beat, d: 0.5 }, { n: note(), b: beat + 0.5, d: 0.5 }); beat += 1; }
+    else { ev.push({ n: note(), b: beat, d: 1 }); beat += 1; }
+    lastRest = kind === 'r';
+  }
+  const pitched = ev.filter(e => e.n !== null).map(e => e.n);
+  return { type: 'rhythm', c: 'treble', level: cfg.rlevel, bpm: cfg.bpm, ev, notes: pitched, ask: pitched };
+}
 function makeCard(type) {
+  if (type === 'rhythm') return makeRhythm();
   if (type === 'chain') {
     const d = pick(dirs()), len = rand(Math.min(3, cfg.len), cfg.len);
     const n0 = rand(0, 6) + 28;                           // octava indiferente: solo importa el nombre
@@ -780,6 +857,7 @@ function signature(c = cfg) {
   const parts = [types.join('+'), c.size];
   if (types.includes('chain')) parts.push(c.dir, c.len);
   if (usesStaff(types)) parts.push(c.clefs.slice().sort().join('+'), c.ledger);
+  if (types.includes('rhythm')) parts.push('n' + c.rlevel, c.bpm);
   return parts.join('|');
 }
 
@@ -825,6 +903,12 @@ function renderCardFace() {
   const card = current();
   const el = $('card');
   const corner = `<span class="corner">${game.pos + 1} / ${game.queue.length}</span>`;
+  if (card.type === 'rhythm') {
+    el.innerHTML = `${corner}<p class="prompt">Lee y entona a tempo · <b>negra = ${card.bpm}</b></p><div class="staff rhythm"></div><div class="count" id="count"></div>`;
+    rhGeo = drawRhythm(el.querySelector('.staff'), card, rStates);
+    if (rhGeo) addPitchBall({ svg: rhGeo.svg, gap: rhGeo.gap, x: rhGeo.ev[0].x, y: rhGeo.ev[0].y });
+    return;
+  }
   if (card.type === 'read') {
     el.innerHTML = `${corner}<p class="prompt">¿Qué nota es?</p><div class="staff"></div>`;
   } else if (card.type === 'sing') {
@@ -881,11 +965,15 @@ function resetCard(cls) {
 function showCard(animate) {
   clearTimeout(waitTimer); stopListening();
   locked = false; step = 0; marks = [];
-  const card = current(), sing = card.type === 'sing';
-  $('answers').hidden = sing;
+  const card = current(), sing = card.type === 'sing', rhythm = card.type === 'rhythm';
+  rStates = rhythm ? card.ev.map(() => null) : [];
+  $('deck').classList.toggle('wide', rhythm);
+  $('answers').hidden = sing || rhythm;
   $('sing-controls').hidden = !sing;
+  $('rhythm-controls').hidden = !rhythm;
+  ['rhythm-go', 'rhythm-listen'].forEach(id => { $(id).disabled = false; });
   $('feedback').textContent = ''; $('feedback').className = 'feedback';
-  if (!sing) renderAnswers();
+  if (!sing && !rhythm) renderAnswers();
   renderStatus();
   resetCard('card');
   renderCardFace();
@@ -898,6 +986,8 @@ function showBetween() {
   clearTimeout(waitTimer); stopListening();
   locked = false;
   renderStatus();
+  $('deck').classList.remove('wide');
+  $('rhythm-controls').hidden = true;
   $('answers').hidden = true;
   $('sing-controls').hidden = true;
   $('feedback').textContent = '';
@@ -955,7 +1045,8 @@ function finishCard(ok, failText) {
   game.ms += ms;
   game.answers++;
   game.lastId = card.id;
-  if (card.type !== 'chain') marks[0] = ok ? 'ok' : 'bad';
+  if (card.type === 'read' || card.type === 'sing') marks[0] = ok ? 'ok' : 'bad';
+  ['rhythm-go', 'rhythm-listen'].forEach(id => { $(id).disabled = true; });
   renderCardFace();
   if (card.type === 'sing') singResult(ok);
   if (ok) {
@@ -976,7 +1067,7 @@ function finishCard(ok, failText) {
     $('feedback').innerHTML = `${failText}.<span class="pts">−${PTS_MISS}</span>`;
     $('feedback').className = 'feedback bad';
     $('card').classList.add('wrong');
-    waitTimer = setTimeout(() => leave(false), card.type === 'read' ? 1700 : 2600);
+    waitTimer = setTimeout(() => leave(false), card.type === 'read' ? 1700 : card.type === 'rhythm' ? 3200 : 2600);
   }
   saveGame();
 }
@@ -1014,8 +1105,8 @@ function advance() {
 const HOLD_OK = 0.6, HOLD_WRONG = 2.2, SING_LIMIT = 25000;
 let listenTimer = null, ignoreUntil = 0, hold = 0, wrongPc = -1, wrongHold = 0, lastTick = 0;
 // Valen la nota y sus alteraciones (Sol, Sol♯, Sol♭), pero no otra nota natural: Mi♯ es Fa y no vale por Mi
-function accepted() {
-  const t = SEMIS[mod7(current().ask[0])], ok = [t];
+function accepted(n = current().ask[0]) {
+  const t = SEMIS[mod7(n)], ok = [t];
   for (const pc of [(t + 1) % 12, (t + 11) % 12]) if (!SEMIS.includes(pc)) ok.push(pc);
   return ok;
 }
@@ -1032,7 +1123,7 @@ function startSingCard() {
   lastTick = performance.now();
   listenTimer = setInterval(listenTick, 50);
 }
-function stopListening() { clearInterval(listenTimer); listenTimer = null; }
+function stopListening() { clearInterval(listenTimer); listenTimer = null; stopRhythm(); }
 function listenTick() {
   if (!mic || locked) return;
   const now = performance.now(), dt = (now - lastTick) / 1000;
@@ -1073,11 +1164,11 @@ function addPitchBall(geo) {
   ball = { el: c, geo };
   ballMidi = null;
 }
-function moveBall(midi) {
+function moveBall(midi, targetN = current().ask[0]) {
   if (!ball || !ball.el.isConnected) return;
   if (midi === null) { ball.el.style.opacity = '0.25'; return; }
   // Da igual la octava: se compara con la octava de la nota escrita más cercana a lo que cantas
-  const target = midiOf(current().ask[0]);
+  const target = midiOf(targetN);
   let delta = midi - target;
   delta -= 12 * Math.round(delta / 12);
   ballMidi = ballMidi === null ? delta : ballMidi + (delta - ballMidi) * 0.35;   // suavizado
@@ -1096,6 +1187,166 @@ function singResult(ok) {
 }
 $('sing-ref').addEventListener('click', () => { if (!locked) playHelp(); });
 $('sing-giveup').addEventListener('click', () => { if (!locked) finishCard(false, `Era ${nameOf(current().ask[0])}`); });
+
+// ---------- Solfeo con metrónomo ----------
+const R_LATENCY = 0.08;   // s de retraso aproximado del micrófono
+const R_ATTACK = 0.12;    // s del principio de cada nota que no cuentan (la voz tarda en asentarse)
+let rStates = [], rhGeo = null, rh = null;
+// Dibuja los dos compases y devuelve dónde queda cada nota o silencio
+function drawRhythm(el, card, states, W = 560) {
+  el.innerHTML = '';
+  if (!VF) { el.textContent = 'No se ha podido dibujar el pentagrama. Recarga la página.'; return null; }
+  const renderer = new VF.Renderer(el, VF.Renderer.Backends.SVG);
+  renderer.resize(W, H);
+  const ctx = renderer.getContext();
+  const ink = cssVar('--fg'), okC = cssVar('--ok'), badC = cssVar('--bad'), curC = cssVar('--gold');   // la nota que toca, en dorado
+  ctx.setFillStyle(ink); ctx.setStrokeStyle(ink);
+  const barW = (W - 20) / 2, geo = [];
+  let gap = 10;
+  [0, 1].forEach(bar => {
+    const st = new VF.Stave(10 + bar * barW, 35, barW, { fill_style: ink });
+    if (bar === 0) st.addClef('treble').addTimeSignature('4/4');
+    if (bar === 1) st.setEndBarType(VF.Barline.type.END);
+    st.setContext(ctx).draw();
+    gap = st.getSpacingBetweenLines();
+    const evs = card.ev.map((e, i) => ({ ...e, i })).filter(e => Math.floor(e.b / 4) === bar);
+    const notes = evs.map(e => {
+      const dur = e.d === 2 ? 'h' : e.d === 1 ? 'q' : '8';
+      const sn = e.n === null
+        ? new VF.StaveNote({ clef: 'treble', keys: ['b/4'], duration: dur + 'r' })
+        : new VF.StaveNote({ clef: 'treble', keys: [vfKey(e.n)], duration: dur });
+      const s = states[e.i];
+      const c = s === 'ok' ? okC : s === 'bad' ? badC : s === 'cur' ? curC : ink;
+      sn.setStyle({ fillStyle: c, strokeStyle: c });
+      if (e.n !== null) sn.setLedgerLineStyle({ fillStyle: ink, strokeStyle: ink });
+      return sn;
+    });
+    const beams = VF.Beam.generateBeams(notes);
+    const voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false).addTickables(notes);
+    new VF.Formatter().joinVoices([voice]).format([voice], barW - (bar === 0 ? 85 : 30));
+    voice.draw(ctx, st);
+    beams.forEach(b => b.setContext(ctx).draw());
+    notes.forEach((sn, k) => {
+      const e = evs[k];
+      geo[e.i] = { x: sn.getAbsoluteX() + sn.getGlyphWidth(), y: e.n === null ? st.getYForLine(2) : sn.getYs()[0] };
+    });
+  });
+  const svg = el.querySelector('svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.removeAttribute('width'); svg.removeAttribute('height');
+  svg.style.width = ''; svg.style.height = '';
+  return { svg, ev: geo, gap };
+}
+function clickAt(ac, out, when, accent) {
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = 'square';
+  o.frequency.value = accent ? 1760 : 1175;
+  g.gain.setValueAtTime(0, when);
+  g.gain.linearRampToValueAtTime(accent ? 0.35 : 0.22, when + 0.001);
+  g.gain.exponentialRampToValueAtTime(0.001, when + 0.05);
+  o.connect(g).connect(out);
+  o.start(when); o.stop(when + 0.06);
+}
+// Escuchar: el ejercicio tocado al piano a su tempo, sin metrónomo
+$('rhythm-listen').addEventListener('click', () => {
+  const card = current();
+  if (locked || rh || card.type !== 'rhythm') return;
+  const spb = 60 / card.bpm;
+  card.ev.forEach(e => { if (e.n !== null) playMidi(comfy(e.n), 0.1 + e.b * spb, Math.max(0.55, e.d * spb)); });
+});
+// Comenzar: suena la primera nota, un compás de cuenta y empieza la lectura con el metrónomo
+function startRhythm() {
+  const card = current();
+  if (locked || rh || card.type !== 'rhythm' || game.phase !== 'play') return;
+  const ac = audio();
+  ['rhythm-go', 'rhythm-listen'].forEach(id => { $(id).disabled = true; });
+  const spb = 60 / card.bpm;
+  const ref = playMidi(comfy(card.notes[0]));
+  const countStart = ac.currentTime + ref + 0.25, t0 = countStart + 4 * spb;
+  const out = ac.createGain();
+  out.connect(ac.destination);
+  for (let b = 0; b < 12; b++) clickAt(ac, out, countStart + b * spb, b % 4 === 0);
+  rh = { spb, countStart, t0, out, idx: -1, win: 0, inTune: 0, voiced: 0, last: ac.currentTime };
+  startedAt = performance.now();
+  rh.timer = setInterval(rhythmTick, 25);
+}
+function stopRhythm() {
+  if (!rh) return;
+  clearInterval(rh.timer);
+  try { rh.out.disconnect(); } catch (e) {}   // corta los clics que quedaban por sonar
+  rh = null;
+  const count = $('count');
+  if (count) count.textContent = '';
+}
+function setRState(i, state) {
+  rStates[i] = state;
+  const keepBall = ball && ball.el.isConnected ? ball.el.style.opacity : '0';
+  renderCardFace();
+  if (ball && rhGeo && rhGeo.ev[i]) {
+    ball.el.setAttribute('cx', rhGeo.ev[i].x + rhGeo.gap * 2);
+    ball.geo = { ...ball.geo, x: rhGeo.ev[i].x, y: rhGeo.ev[i].y };
+    ball.el.setAttribute('cy', rhGeo.ev[i].y);
+    ball.el.style.opacity = keepBall;
+  }
+}
+function rhythmTick() {
+  if (!rh || locked) return;
+  const card = current(), now = actx.currentTime, count = $('count');
+  const dt = now - rh.last;
+  rh.last = now;
+  if (now < rh.countStart) { if (count) count.textContent = ''; return; }
+  if (now < rh.t0) { if (count) count.textContent = String(Math.floor((now - rh.countStart) / rh.spb) + 1); return; }
+  if (count) count.textContent = '';
+  const t = (now - R_LATENCY - rh.t0) / rh.spb;   // pulso del ejercicio, compensando el retraso del micrófono
+  if (t < 0) return;
+  const f = mic ? detectPitch() : null;
+  const sung = f ? 69 + 12 * Math.log2(f / 440) : null;
+  const i = card.ev.findIndex(e => t >= e.b && t < e.b + e.d);
+  if (i !== rh.idx) {
+    if (rh.idx >= 0 && !judgeRhythm(rh.idx)) return;
+    if (i < 0) return rhythmDone();
+    rh.idx = i; rh.win = 0; rh.inTune = 0; rh.voiced = 0; ballMidi = null;
+    setRState(i, 'cur');
+  }
+  const e = card.ev[i], into = (t - e.b) * rh.spb, dur = e.d * rh.spb;
+  if (e.n !== null) {
+    moveBall(sung, e.n);
+    if (into >= R_ATTACK) {
+      rh.win += dt;
+      if (sung !== null && accepted(e.n).includes(((Math.round(sung) % 12) + 12) % 12)) rh.inTune += dt;
+    }
+  } else {
+    if (ball) ball.el.style.opacity = '0';
+    if (sung !== null && into > 0.15 && into < dur - 0.1) rh.voiced += dt;
+  }
+}
+// Al acabar cada nota o silencio: ¿se ha cumplido?
+function judgeRhythm(i) {
+  const card = current(), e = card.ev[i];
+  if (e.n !== null) {
+    const need = e.d < 1 ? 0.4 : 0.55;
+    if (rh.win > 0 && rh.inTune / rh.win >= need) { rStates[i] = 'ok'; return true; }
+    const k = card.ev.slice(0, i + 1).filter(x => x.n !== null).length;
+    rStates[i] = 'bad';
+    stopRhythm();
+    playMidi(comfy(e.n), 0.15);
+    finishCard(false, `La ${k}.ª nota era ${nameOf(e.n)} y no ha sonado a tiempo`);
+    return false;
+  }
+  if (rh.voiced > 0.15) {
+    rStates[i] = 'bad';
+    stopRhythm();
+    finishCard(false, `Has cantado en el silencio del pulso ${Math.floor(e.b) % 4 + 1}`);
+    return false;
+  }
+  rStates[i] = 'ok';
+  return true;
+}
+function rhythmDone() {
+  stopRhythm();
+  finishCard(true);
+}
+$('rhythm-go').addEventListener('click', startRhythm);
 
 // ---------- Resultados ----------
 function maxPoints() { return game.cards.length * (PTS_FIRST + PTS_SPEED); }
@@ -1160,12 +1411,14 @@ function showResults() {
   $('hard').innerHTML = hard.map(({ c, n }) => {
     const label = c.type === 'chain'
       ? `${nameOf(c.start)} ${c.d > 0 ? '↗' : '↘'} ${c.ask.map(nameOf).join(' ')}`
+      : c.type === 'rhythm' ? `Solfeo, nivel ${c.level}`
       : (c.type === 'sing' ? 'Cantar ' : '') + nameOf(c.ask[0]);
     return `<li>${c.c ? '<div class="mini"></div>' : ''}<span>${label} · ${n} ${n === 1 ? 'fallo' : 'fallos'}</span></li>`;
   }).join('');
   $('hard').querySelectorAll('.mini').forEach((m, i) => {
     const c = hard.filter(h => h.c.c)[i].c;
-    drawStaff(m, c.c, [{ n: c.notes[0] }], 150);
+    if (c.type === 'rhythm') { m.classList.add('mini-wide'); drawRhythm(m, c, []); }
+    else drawStaff(m, c.c, [{ n: c.notes[0] }], 150);
   });
   // El foco va al botón sin desplazar la vista: los resultados se ven desde arriba
   $('again').focus({ preventScroll: true });
@@ -1174,7 +1427,7 @@ function showResults() {
 
 // ---------- Abrir y cerrar la mesa ----------
 let fullscreenByUs = false;
-const hasSing = () => game.cards.some(c => c.type === 'sing');
+const hasSing = () => game.cards.some(c => NEEDS_MIC(c.type));
 function renderSoundBtn() {
   const on = cfg.sound === 'on';
   $('sound').setAttribute('aria-pressed', String(on));
@@ -1212,7 +1465,7 @@ async function openGame() {
 function noMic() {
   if (game && game.answers === 0) { game = null; try { localStorage.removeItem(GAME_KEY); } catch (e) {} }
   closeGame();
-  showMsg('Para entonar hace falta el micrófono. Permite su uso en los ajustes del navegador para esta página o quita Entonar del mazo.');
+  showMsg('Para entonar y para el solfeo con metrónomo hace falta el micrófono. Permite su uso en los ajustes del navegador para esta página o quita esos ejercicios del mazo.');
 }
 function closeGame(fromHistory) {
   if ($('game').hidden) return;
@@ -1241,11 +1494,12 @@ function renderHome() {
   }
   document.querySelectorAll('input[name=type]').forEach(r => {
     r.checked = cfg.types.includes(r.value);
-    if (r.value === 'sing') { r.disabled = !CAN_SING; r.closest('.mode').classList.toggle('off', !CAN_SING); }
+    if (NEEDS_MIC(r.value)) { r.disabled = !CAN_SING; r.closest('.mode').classList.toggle('off', !CAN_SING); }
   });
   document.querySelectorAll('.opt-staff').forEach(el => el.hidden = !usesStaff(cfg.types));
   document.querySelectorAll('.opt-chain').forEach(el => el.hidden = !cfg.types.includes('chain'));
-  document.querySelectorAll('.opt-answer').forEach(el => el.hidden = cfg.types.every(t => t === 'sing'));
+  document.querySelectorAll('.opt-answer').forEach(el => el.hidden = !cfg.types.some(t => t === 'read' || t === 'chain'));
+  document.querySelectorAll('.opt-rhythm').forEach(el => el.hidden = !cfg.types.includes('rhythm'));
   const rec = records[signature()];
   $('home-record').textContent = rec ? `Tu récord con estas opciones: ${fmt(rec.points)} puntos` : '';
   $('start').textContent = inProgress ? 'Empezar un mazo nuevo' : 'Empezar';
@@ -1292,7 +1546,8 @@ $('share-copy').addEventListener('click', () => {
 document.addEventListener('keydown', e => {
   if ($('game').hidden || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Escape') { e.preventDefault(); closeGame(); return; }
-  if (game.phase === 'play' && current().type !== 'sing' && /^[1-7]$/.test(e.key)) { e.preventDefault(); press(order[+e.key - 1]); }
+  if (game.phase === 'play' && current().type === 'rhythm' && (e.key === 'Enter' || e.key === ' ') && !locked) { e.preventDefault(); startRhythm(); return; }
+  if (game.phase === 'play' && current().type !== 'sing' && current().type !== 'rhythm' && /^[1-7]$/.test(e.key)) { e.preventDefault(); press(order[+e.key - 1]); }
   else if (e.key === 'Enter' || e.key === ' ') {
     if (game.phase === 'play' && locked) { e.preventDefault(); leave(!game.failed.includes(current().id)); }
     else if (game.phase === 'between' && document.activeElement?.id !== 'between-go') { e.preventDefault(); startRound(); }
@@ -1317,7 +1572,8 @@ $('clefs').addEventListener('change', () => {
   showMsg(cfg.clefs.length ? '' : 'Elige al menos una clave.');
   saveCfg(); renderHome();
 });
-for (const [id, key, num] of [['opt-ledger', 'ledger', true], ['opt-dir', 'dir'], ['opt-len', 'len', true], ['opt-names', 'names'], ['opt-sound', 'sound']]) {
+$('opt-rlevel').innerHTML = RLEVELS.slice(1).map((l, i) => `<option value="${i + 1}">${l.name}</option>`).join('');
+for (const [id, key, num] of [['opt-ledger', 'ledger', true], ['opt-dir', 'dir'], ['opt-len', 'len', true], ['opt-names', 'names'], ['opt-sound', 'sound'], ['opt-rlevel', 'rlevel', true], ['opt-bpm', 'bpm', true]]) {
   $(id).value = cfg[key];
   $(id).addEventListener('change', e => { cfg[key] = num ? +e.target.value : e.target.value; saveCfg(); renderHome(); });
 }

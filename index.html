@@ -1456,14 +1456,13 @@ function judgeRhythm(i) {
   rStates[i] = 'ok';
   return true;
 }
-// Al final: se aprueba si están bien más de la mitad de las notas y silencios
+// Al final: se aprueba solo si están bien todas las notas y silencios
 function rhythmDone() {
   const total_ = current().ev.length, good = rStates.filter(x => x === 'ok').length;
   const firstError = rh?.firstError;
   stopRhythm();
-  const ok = good > total_ / 2;
-  finishCard(ok, `Solo ${good} de ${total_} bien${firstError ? ': ' + firstError : ''}`);
-  if (ok) $('feedback').innerHTML = `${good} de ${total_} bien · ` + $('feedback').innerHTML;
+  const ok = good === total_;
+  finishCard(ok, `${good} de ${total_} bien${firstError ? '; ' + firstError : ''}`);
 }
 $('rhythm-go').addEventListener('click', startRhythm);
 

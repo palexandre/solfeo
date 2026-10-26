@@ -153,7 +153,7 @@ footer.note a { color: inherit; }
 .layer.l3 { transform: translate(-6px, 10px) rotate(-2deg); }
 .card {
   z-index: 2; container-type: inline-size; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 3.5cqw 4cqw; gap: 2cqw; cursor: default;
+  padding: 3.5cqw 4cqw; gap: 2cqw; cursor: grab; touch-action: pan-y; user-select: none; -webkit-user-select: none;
   transition: transform .4s cubic-bezier(.5, 0, .75, 0), opacity .4s ease-in;
 }
 .card .corner { position: absolute; top: 2.6cqw; left: 3.4cqw; font-size: 2.6cqw; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -433,6 +433,7 @@ footer.note a { color: inherit; }
     <p>Puntuación: cada ficha acertada a la primera vale 100 puntos, y 50 si la aciertas en una ronda posterior. Si contestas rápido ganas hasta 50 más. Cada fallo resta 25.</p>
     <p>Entonar: da igual la octava en la que cantes. Mantén la nota afinada un momento hasta que la barra se llene. Si mantienes otra nota, cuenta como fallo. Necesita permiso para usar el micrófono.</p>
     <p>Solfeo con metrónomo: tras un compás de cuenta, entona cada nota en su tiempo; basta con sostenerla afinada un momento. En los silencios no hay que cantar. Si una nota no suena a tiempo o cantas en un silencio, la ficha falla. Con auriculares funciona mejor.</p>
+    <p>Puedes deslizar una ficha a cualquier lado para pasarla: va al montón de repaso y cuenta como fallo.</p>
     <p>Teclado: las teclas 1 a 7 pulsan los botones de las notas de izquierda a derecha. Intro continúa (o comienza el solfeo) y Esc vuelve al inicio sin perder el mazo.</p>
     <p>Pentagramas dibujados con <a href="https://www.vexflow.com" target="_blank" rel="noopener">VexFlow</a> (licencia MIT) y la tipografía musical Bravura de Steinberg (SIL Open Font License 1.1).</p>
     <p>El mazo en curso, las opciones y tus récords se guardan en este navegador. Funciona sin conexión, y en el móvil puedes añadirla a la pantalla de inicio desde el menú del navegador.</p>
@@ -1065,7 +1066,7 @@ function flash(btn, cls) {
   btn.classList.add(cls);
   setTimeout(() => { if (!locked) btn.classList.remove(cls); }, 250);
 }
-function finishCard(ok, failText) {
+function finishCard(ok, failText, silent = false) {
   locked = true;
   stopListening();
   const card = current();
@@ -1078,7 +1079,7 @@ function finishCard(ok, failText) {
   if (card.type === 'read' || card.type === 'sing') marks[0] = ok ? 'ok' : 'bad';
   ['rhythm-go', 'rhythm-listen'].forEach(id => { $(id).disabled = true; });
   renderCardFace();
-  if (card.type === 'sing') singResult(ok);
+  if (card.type === 'sing' && !silent) singResult(ok);
   if (ok) {
     game.learned++;
     const base = game.round === 1 ? PTS_FIRST : PTS_LATER;
@@ -1646,9 +1647,62 @@ $('answers').addEventListener('click', e => {
   if (b) press(+b.dataset.step);
 });
 $('deck').addEventListener('click', () => {
-  // Con la ficha ya contestada, tocarla pasa a la siguiente
+  // Con la ficha ya contestada, tocarla pasa a la siguiente (salvo si se acaba de arrastrar)
+  if (justDragged) return;
   if (locked && game.phase === 'play') leave(!game.failed.includes(current().id));
 });
+
+// ---------- Deslizar la ficha a un lado: pasa al montón de repaso ----------
+let drag = null, justDragged = false;
+$('card').addEventListener('pointerdown', e => {
+  if (game?.phase !== 'play' || e.button > 0 || e.target.closest('button')) return;
+  drag = { x: e.clientX, y: e.clientY, dx: 0, id: e.pointerId, moved: false };
+});
+$('card').addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  drag.dx = e.clientX - drag.x;
+  if (!drag.moved) {
+    if (Math.abs(drag.dx) < 8) return;
+    if (Math.abs(e.clientY - drag.y) > Math.abs(drag.dx)) { drag = null; return; }   // movimiento vertical: es desplazar la página
+    drag.moved = true;
+    $('card').setPointerCapture(e.pointerId);
+    $('card').style.transition = 'none';
+  }
+  $('card').style.transform = `translateX(${drag.dx}px) rotate(${drag.dx / 25}deg)`;
+});
+function endDrag(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  const d = drag;
+  drag = null;
+  if (!d.moved) return;
+  justDragged = true;
+  setTimeout(() => { justDragged = false; }, 50);
+  const el = $('card');
+  const far = Math.abs(d.dx) > Math.max(70, el.offsetWidth * 0.25);
+  el.style.transition = '';
+  if (!far) { el.style.transform = ''; return; }   // poco recorrido: vuelve a su sitio
+  swipeAway(Math.sign(d.dx));
+}
+$('card').addEventListener('pointerup', endDrag);
+$('card').addEventListener('pointercancel', endDrag);
+function swipeAway(dir) {
+  const el = $('card'), card = current();
+  // Si aún no estaba contestada, cuenta como fallo; si ya lo estaba, solo pasa a la siguiente
+  if (!locked) {
+    finishCard(false, 'Ficha pasada', true);
+    clearTimeout(waitTimer);
+  }
+  const failed = game.failed.includes(card.id);
+  el.classList.remove('wrong');
+  el.style.transform = `translateX(${dir * 130}%) rotate(${dir * 18}deg)`;
+  el.style.opacity = '0';
+  const pile = $(failed ? 'pile-bad' : 'pile-ok');
+  setTimeout(() => {
+    el.style.transform = ''; el.style.opacity = '';
+    pile.classList.remove('bump'); void pile.offsetWidth; pile.classList.add('bump');
+    if (game.phase === 'play' && locked) advance();
+  }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 320);
+}
 $('share-native').addEventListener('click', () => { navigator.share({ text: shareText() }).catch(() => {}); });
 $('share-copy').addEventListener('click', () => {
   const text = shareText();

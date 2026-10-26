@@ -360,6 +360,15 @@ footer.note a { color: inherit; }
         </select>
       </div>
       <div class="field opt-chain">
+        <label for="opt-step">Recorrido de la escala</label>
+        <span class="hint">En clave de Sol: Mi, Sol, Si, Re, Fa van en línea; Fa, La, Do, Mi, en espacio.</span>
+        <select id="opt-step">
+          <option value="steps">Todas las notas (por grados)</option>
+          <option value="thirds">Solo líneas o solo espacios</option>
+          <option value="mixed">Mezclado</option>
+        </select>
+      </div>
+      <div class="field opt-chain">
         <label for="opt-len">Notas por cadena</label>
         <select id="opt-len">
           <option value="3">3</option>
@@ -662,7 +671,7 @@ const SPEED = { read: [2000, 8000], chain: [900, 3500], sing: [3000, 12000], rhy
 
 // ---------- Opciones, partida y récords en localStorage ----------
 const CFG_KEY = 'solfeo-fichas-v4', GAME_KEY = 'solfeo-fichas-partida-v5', REC_KEY = 'solfeo-fichas-records-v4';
-const DEFAULTS = { types: ['read'], clefs: ['treble', 'bass'], ledger: 1, size: 7, names: 'es', dir: 'both', len: 5, sound: 'on', rlevel: 1, bpm: 60, tune: 'normal' };
+const DEFAULTS = { types: ['read'], clefs: ['treble', 'bass'], ledger: 1, size: 7, names: 'es', dir: 'both', len: 5, sound: 'on', rlevel: 1, bpm: 60, tune: 'normal', step: 'steps' };
 function load(key, fallback) { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch (e) { return fallback; } }
 function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 // Entonar solo existe si el navegador puede usar el micrófono
@@ -834,9 +843,11 @@ function makeCard(type) {
   if (type === 'rhythm') return makeRhythm();
   if (type === 'chain') {
     const d = pick(dirs()), len = rand(Math.min(3, cfg.len), cfg.len);
-    const n0 = rand(0, 6) + 28;                           // octava indiferente: solo importa el nombre
-    const seq = Array.from({ length: len }, (_, i) => n0 + d * (i + 1));
-    return { type, start: n0, d, notes: [n0, ...seq], ask: seq };
+    // Por grados (todas las notas) o de tercera en tercera: en el pentagrama, solo líneas o solo espacios
+    const k = cfg.step === 'thirds' ? 2 : cfg.step === 'mixed' ? pick([1, 2]) : 1;
+    const n0 = rand(0, 6) + 28;                           // octava 4: en clave de Sol, Mi4 está en la primera línea
+    const seq = Array.from({ length: len }, (_, i) => n0 + d * k * (i + 1));
+    return { type, start: n0, d, k, notes: [n0, ...seq], ask: seq };
   }
   const c = pick(cfg.clefs), [lo, hi] = rangeOf(c);
   const n = rand(lo, hi);
@@ -870,7 +881,7 @@ function newGame() {
 function signature(c = cfg) {
   const types = c.types.slice().sort();
   const parts = [types.join('+'), c.size];
-  if (types.includes('chain')) parts.push(c.dir, c.len);
+  if (types.includes('chain')) parts.push(c.dir, c.len, c.step);
   if (usesStaff(types)) parts.push(c.clefs.slice().sort().join('+'), c.ledger);
   if (types.includes('rhythm')) parts.push('n' + c.rlevel, c.bpm);
   if (types.includes('rhythm') || types.includes('sing')) parts.push(c.tune);
@@ -938,7 +949,9 @@ function renderCardFace() {
       const cls = m === 'ok' ? 'ok' : m === 'bad' ? 'bad' : m === 'reveal' ? 'reveal' : (i === step && !locked ? 'cur' : '');
       return `<div class="slot ${cls}">${m ? nameOf(note) : ''}</div>`;
     }).join('');
-    el.innerHTML = `${corner}<p class="prompt">Desde ${nameOf(card.start)}, <b>${card.d > 0 ? 'sube' : 'baja'} ${n} ${n === 1 ? 'nota' : 'notas'}</b></p>
+    // En clave de Sol, las notas de la octava 4 a distancia par de Mi4 (índice 30) están en línea
+    const where = card.k === 2 ? ((card.start - 30) % 2 === 0 ? ' por las líneas' : ' por los espacios') : '';
+    el.innerHTML = `${corner}<p class="prompt">Desde ${nameOf(card.start)}, <b>${card.d > 0 ? 'sube' : 'baja'} ${n} ${n === 1 ? 'nota' : 'notas'}${where}</b></p>
       <div class="chain"><span class="from">${nameOf(card.start)}</span><span class="dir">${card.d > 0 ? '↗' : '↘'}</span></div><div class="slots">${slots}</div>`;
   }
   const staffEl = el.querySelector('.staff');
@@ -1673,7 +1686,7 @@ $('clefs').addEventListener('change', () => {
   saveCfg(); renderHome();
 });
 $('opt-rlevel').innerHTML = RLEVELS.slice(1).map((l, i) => `<option value="${i + 1}">${l.name}</option>`).join('');
-for (const [id, key, num] of [['opt-ledger', 'ledger', true], ['opt-dir', 'dir'], ['opt-len', 'len', true], ['opt-names', 'names'], ['opt-sound', 'sound'], ['opt-rlevel', 'rlevel', true], ['opt-bpm', 'bpm', true], ['opt-tune', 'tune']]) {
+for (const [id, key, num] of [['opt-ledger', 'ledger', true], ['opt-dir', 'dir'], ['opt-len', 'len', true], ['opt-names', 'names'], ['opt-sound', 'sound'], ['opt-rlevel', 'rlevel', true], ['opt-bpm', 'bpm', true], ['opt-tune', 'tune'], ['opt-step', 'step']]) {
   $(id).value = cfg[key];
   $(id).addEventListener('change', e => { cfg[key] = num ? +e.target.value : e.target.value; saveCfg(); renderHome(); });
 }

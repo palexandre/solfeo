@@ -373,6 +373,15 @@ footer.note a { color: inherit; }
         <label for="opt-size">Fichas por mazo</label>
         <input type="number" id="opt-size" min="3" max="100" step="1">
       </div>
+      <div class="field opt-tune">
+        <label for="opt-tune">Exigencia con la afinación</label>
+        <select id="opt-tune">
+          <option value="estricta">Estricta: la nota y sus ♯ y ♭</option>
+          <option value="normal">Normal: un semitono de margen</option>
+          <option value="flexible">Flexible: un tono de margen</option>
+          <option value="ritmo">Solo ritmo: cualquier tono (en el solfeo)</option>
+        </select>
+      </div>
       <div class="field opt-rhythm">
         <label for="opt-rlevel">Nivel del solfeo</label>
         <select id="opt-rlevel"></select>
@@ -653,7 +662,7 @@ const SPEED = { read: [2000, 8000], chain: [900, 3500], sing: [3000, 12000], rhy
 
 // ---------- Opciones, partida y récords en localStorage ----------
 const CFG_KEY = 'solfeo-fichas-v4', GAME_KEY = 'solfeo-fichas-partida-v5', REC_KEY = 'solfeo-fichas-records-v4';
-const DEFAULTS = { types: ['read'], clefs: ['treble', 'bass'], ledger: 1, size: 7, names: 'es', dir: 'both', len: 5, sound: 'on', rlevel: 1, bpm: 60 };
+const DEFAULTS = { types: ['read'], clefs: ['treble', 'bass'], ledger: 1, size: 7, names: 'es', dir: 'both', len: 5, sound: 'on', rlevel: 1, bpm: 60, tune: 'normal' };
 function load(key, fallback) { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch (e) { return fallback; } }
 function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 // Entonar solo existe si el navegador puede usar el micrófono
@@ -864,6 +873,7 @@ function signature(c = cfg) {
   if (types.includes('chain')) parts.push(c.dir, c.len);
   if (usesStaff(types)) parts.push(c.clefs.slice().sort().join('+'), c.ledger);
   if (types.includes('rhythm')) parts.push('n' + c.rlevel, c.bpm);
+  if (types.includes('rhythm') || types.includes('sing')) parts.push(c.tune);
   return parts.join('|');
 }
 
@@ -1116,6 +1126,16 @@ function accepted(n = current().ask[0]) {
   for (const pc of [(t + 1) % 12, (t + 11) % 12]) if (!SEMIS.includes(pc)) ok.push(pc);
   return ok;
 }
+// Exigencia con la afinación: cuántos semitonos de margen se dan alrededor de la nota (en cualquier octava)
+const TUNE_MARGIN = { normal: 1, flexible: 2 };
+function pcOk(n, pc, type = current().type) {
+  const tune = type === 'sing' && cfg.tune === 'ritmo' ? 'flexible' : cfg.tune;   // en Entonar siempre se mira el tono
+  if (tune === 'ritmo') return true;
+  if (tune === 'estricta') return accepted(n).includes(pc);
+  let d = pc - SEMIS[mod7(n)];
+  d -= 12 * Math.round(d / 12);
+  return Math.abs(d) <= TUNE_MARGIN[tune];
+}
 // Suena la nota que hay que cantar
 function playHelp() {
   const secs = playMidi(comfy(current().ask[0]));
@@ -1145,7 +1165,7 @@ function listenTick() {
   const near = Math.round(sung);
   const pc = ((near % 12) + 12) % 12;
   heard.textContent = CHROMA[cfg.names][pc];
-  const good = accepted().includes(pc);
+  const good = pcOk(current().ask[0], pc);
   heard.className = 'heard ' + (good ? 'ok' : 'bad');
   if (good) { hold += dt; wrongHold = 0; }
   else {
@@ -1181,7 +1201,8 @@ function moveBall(midi, targetN = current().ask[0]) {
   const shown = Math.max(-8, Math.min(8, ballMidi));
   // 12 semitonos = 7 posiciones del pentagrama; cada posición es media separación entre líneas
   ball.el.setAttribute('cy', ball.geo.y - shown * (7 / 12) * (ball.geo.gap / 2));
-  const off = Math.min(1, Math.abs(ballMidi) / 3);                             // a 3 semitonos o más, rojo
+  const margin = cfg.tune === 'flexible' || cfg.tune === 'ritmo' ? 2 : cfg.tune === 'normal' ? 1 : 0.5;
+  const off = Math.min(1, Math.max(0, Math.abs(ballMidi) - margin) / 2.5);    // verde dentro del margen, rojo al alejarse
   ball.el.style.fill = `hsl(${Math.round(130 * (1 - off))} 70% 45%)`;
   ball.el.style.opacity = '1';
 }
@@ -1376,7 +1397,7 @@ function rhythmTick() {
       const pc = ((Math.round(sung) % 12) + 12) % 12;
       rh.voiced += dt;
       rh.heard[pc] = (rh.heard[pc] || 0) + dt;
-      if (accepted(e.n).includes(pc)) {
+      if (pcOk(e.n, pc)) {
         rh.inTune += dt;
         rh.level = rh.level ? rh.level * 0.9 + lastRms * 0.1 : lastRms;     // volumen con el que cantas
       }
@@ -1403,7 +1424,7 @@ function judgeRhythm(i) {
     // Explica qué ha pasado: no se te ha oído o has cantado otra nota
     const top = Object.entries(rh.heard).sort((a, b) => b[1] - a[1])[0];
     const why = rh.voiced < 0.08 ? 'no se te ha oído a tiempo'
-      : top && !accepted(e.n).includes(+top[0]) ? `has cantado ${CHROMA[cfg.names][+top[0]]}`
+      : top && !pcOk(e.n, +top[0]) ? `has cantado ${CHROMA[cfg.names][+top[0]]}`
       : 'ha durado demasiado poco';
     stopRhythm();
     playMidi(comfy(e.n), 0.15);
@@ -1578,6 +1599,7 @@ function renderHome() {
   document.querySelectorAll('.opt-chain').forEach(el => el.hidden = !cfg.types.includes('chain'));
   document.querySelectorAll('.opt-answer').forEach(el => el.hidden = !cfg.types.some(t => t === 'read' || t === 'chain'));
   document.querySelectorAll('.opt-rhythm').forEach(el => el.hidden = !cfg.types.includes('rhythm'));
+  document.querySelectorAll('.opt-tune').forEach(el => el.hidden = !cfg.types.some(NEEDS_MIC));
   const rec = records[signature()];
   $('home-record').textContent = rec ? `Tu récord con estas opciones: ${fmt(rec.points)} puntos` : '';
   $('start').textContent = inProgress ? 'Empezar un mazo nuevo' : 'Empezar';
@@ -1651,7 +1673,7 @@ $('clefs').addEventListener('change', () => {
   saveCfg(); renderHome();
 });
 $('opt-rlevel').innerHTML = RLEVELS.slice(1).map((l, i) => `<option value="${i + 1}">${l.name}</option>`).join('');
-for (const [id, key, num] of [['opt-ledger', 'ledger', true], ['opt-dir', 'dir'], ['opt-len', 'len', true], ['opt-names', 'names'], ['opt-sound', 'sound'], ['opt-rlevel', 'rlevel', true], ['opt-bpm', 'bpm', true]]) {
+for (const [id, key, num] of [['opt-ledger', 'ledger', true], ['opt-dir', 'dir'], ['opt-len', 'len', true], ['opt-names', 'names'], ['opt-sound', 'sound'], ['opt-rlevel', 'rlevel', true], ['opt-bpm', 'bpm', true], ['opt-tune', 'tune']]) {
   $(id).value = cfg[key];
   $(id).addEventListener('change', e => { cfg[key] = num ? +e.target.value : e.target.value; saveCfg(); renderHome(); });
 }

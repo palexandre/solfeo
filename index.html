@@ -753,9 +753,18 @@ function playMidi(m, delay = 0, dur = 1.6, ac = audio(), dest = null) {
   });
   return delay + dur;
 }
-// Nota escrita a su altura real; solo se mueve de octava si quedara fuera del registro útil del piano (Mi2–Do6),
-// para que una nota más alta en el pentagrama nunca suene más grave que otra más baja
-const comfy = n => { let m = midiOf(n); while (m < 40) m += 12; while (m > 84) m -= 12; return m; };
+// Altura a la que suena una nota de ejemplo: la escrita, pero la clave de Sol una octava más grave
+// (como la cantan las voces graves y los tenores; a su altura real queda muy aguda).
+// Solo se mueve más de octava si quedara fuera del registro útil del piano (Mi2–Do6).
+function comfy(n) {
+  let m = midiOf(n);
+  let clef = null;
+  try { clef = game && game.phase !== 'done' ? current()?.c : null; } catch (e) {}
+  if (clef === 'treble') m -= 12;
+  while (m < 40) m += 12;
+  while (m > 84) m -= 12;
+  return m;
+}
 function playNote(n) { if (cfg.sound === 'on') playMidi(comfy(n)); }
 // La referencia suena siempre en su octava normal (aunque se exija cantarla una octava más grave)
 const singMidi = n => comfy(n);

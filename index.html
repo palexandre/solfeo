@@ -753,8 +753,9 @@ function playMidi(m, delay = 0, dur = 1.6, ac = audio(), dest = null) {
   });
   return delay + dur;
 }
-// Nota escrita en una octava cómoda para escucharla (entre Do3 y Si4)
-const comfy = n => { let m = midiOf(n); while (m < 48) m += 12; while (m > 71) m -= 12; return m; };
+// Nota escrita a su altura real; solo se mueve de octava si quedara fuera del registro útil del piano (Mi2–Do6),
+// para que una nota más alta en el pentagrama nunca suene más grave que otra más baja
+const comfy = n => { let m = midiOf(n); while (m < 40) m += 12; while (m > 84) m -= 12; return m; };
 function playNote(n) { if (cfg.sound === 'on') playMidi(comfy(n)); }
 // La referencia suena siempre en su octava normal (aunque se exija cantarla una octava más grave)
 const singMidi = n => comfy(n);

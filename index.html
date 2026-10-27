@@ -383,6 +383,13 @@ footer.note a { color: inherit; }
         <input type="number" id="opt-size" min="3" max="100" step="1">
       </div>
       <div class="field opt-tune">
+        <label for="opt-octave">Octava al cantar</label>
+        <select id="opt-octave">
+          <option value="any">Cualquier octava</option>
+          <option value="low">Siempre una octava por debajo de lo escrito</option>
+        </select>
+      </div>
+      <div class="field opt-tune">
         <label for="opt-tune">Exigencia con la afinación</label>
         <select id="opt-tune">
           <option value="estricta">Estricta: la nota y sus ♯ y ♭</option>
@@ -672,7 +679,7 @@ const SPEED = { read: [2000, 8000], chain: [900, 3500], sing: [3000, 12000], rhy
 
 // ---------- Opciones, partida y récords en localStorage ----------
 const CFG_KEY = 'solfeo-fichas-v4', GAME_KEY = 'solfeo-fichas-partida-v5', REC_KEY = 'solfeo-fichas-records-v4';
-const DEFAULTS = { types: ['read'], clefs: ['treble', 'bass'], ledger: 1, size: 7, names: 'es', dir: 'both', len: 5, sound: 'on', rlevel: 1, bpm: 60, tune: 'normal', step: 'mixed' };
+const DEFAULTS = { types: ['read'], clefs: ['treble', 'bass'], ledger: 1, size: 7, names: 'es', dir: 'both', len: 5, sound: 'on', rlevel: 1, bpm: 60, tune: 'normal', step: 'mixed', octave: 'any' };
 function load(key, fallback) { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch (e) { return fallback; } }
 function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 // Entonar solo existe si el navegador puede usar el micrófono
@@ -746,6 +753,8 @@ function playMidi(m, delay = 0, dur = 1.6, ac = audio(), dest = null) {
 // Nota escrita en una octava cómoda para escucharla (entre Do3 y Si4)
 const comfy = n => { let m = midiOf(n); while (m < 48) m += 12; while (m > 71) m -= 12; return m; };
 function playNote(n) { if (cfg.sound === 'on') playMidi(comfy(n)); }
+// Nota que se canta: en cualquier octava (suena en una octava cómoda) o exactamente una octava por debajo de lo escrito
+const singMidi = n => cfg.octave === 'low' ? midiOf(n) - 12 : comfy(n);
 
 // ---------- Micrófono y detección de tono ----------
 let mic = null;
@@ -887,7 +896,7 @@ function signature(c = cfg) {
   if (types.includes('chain')) parts.push(c.dir, c.len, c.step);
   if (usesStaff(types)) parts.push(c.clefs.slice().sort().join('+'), c.ledger);
   if (types.includes('rhythm')) parts.push('n' + c.rlevel, c.bpm);
-  if (types.includes('rhythm') || types.includes('sing')) parts.push(c.tune);
+  if (types.includes('rhythm') || types.includes('sing')) parts.push(c.tune, c.octave);
   return parts.join('|');
 }
 
@@ -1143,6 +1152,13 @@ function accepted(n = current().ask[0]) {
 }
 // Exigencia con la afinación: cuántos semitonos de margen se dan alrededor de la nota (en cualquier octava)
 const TUNE_MARGIN = { normal: 1, flexible: 2 };
+// ¿Vale lo cantado (en semitonos MIDI) para la nota n? Con octava exacta, además tiene que estar en su octava
+function noteOk(n, sung, type = current().type) {
+  const pc = ((Math.round(sung) % 12) + 12) % 12;
+  if (!pcOk(n, pc, type)) return false;
+  if (cfg.octave !== 'low' || (cfg.tune === 'ritmo' && type === 'rhythm')) return true;
+  return Math.abs(sung - (midiOf(n) - 12)) <= 6;   // la nota correcta, en la octava de debajo (no en otra)
+}
 function pcOk(n, pc, type = current().type) {
   const tune = type === 'sing' && cfg.tune === 'ritmo' ? 'flexible' : cfg.tune;   // en Entonar siempre se mira el tono
   if (tune === 'ritmo') return true;
@@ -1153,7 +1169,7 @@ function pcOk(n, pc, type = current().type) {
 }
 // Suena la nota que hay que cantar
 function playHelp() {
-  const secs = playMidi(comfy(current().ask[0]));
+  const secs = playMidi(singMidi(current().ask[0]));
   // Mientras suena el piano, el micrófono no cuenta: si no, se oiría a sí mismo
   ignoreUntil = performance.now() + secs * 1000 + 250;
   hold = 0; wrongHold = 0; wrongPc = -1;
@@ -1180,7 +1196,7 @@ function listenTick() {
   const near = Math.round(sung);
   const pc = ((near % 12) + 12) % 12;
   heard.textContent = CHROMA[cfg.names][pc];
-  const good = pcOk(current().ask[0], pc);
+  const good = noteOk(current().ask[0], sung);
   heard.className = 'heard ' + (good ? 'ok' : 'bad');
   if (good) { hold += dt; wrongHold = 0; }
   else {
@@ -1189,7 +1205,9 @@ function listenTick() {
   }
   bar.style.width = Math.min(100, 100 * hold / HOLD_OK) + '%';
   if (hold >= HOLD_OK) finishCard(true);
-  else if (wrongHold >= HOLD_WRONG) finishCard(false, `Has cantado ${CHROMA[cfg.names][pc]}; era ${nameOf(current().ask[0])}`);
+  else if (wrongHold >= HOLD_WRONG) finishCard(false, pcOk(current().ask[0], pc)
+    ? `Has cantado ${CHROMA[cfg.names][pc]} en otra octava: va una octava por debajo de lo escrito`
+    : `Has cantado ${CHROMA[cfg.names][pc]}; era ${nameOf(current().ask[0])}`);
 }
 // Bola que sigue el tono que cantas junto a la nota: sube y baja contigo y va de rojo (lejos) a verde (en la nota)
 let ball = null, ballMidi = null;
@@ -1211,7 +1229,8 @@ function moveBall(midi, targetN = current().ask[0]) {
   // Da igual la octava: se compara con la octava de la nota escrita más cercana a lo que cantas
   const target = midiOf(targetN);
   let delta = midi - target;
-  delta -= 12 * Math.round(delta / 12);
+  if (cfg.octave === 'low') delta = midi - (target - 12);   // se compara con la octava de abajo, sin plegar
+  else delta -= 12 * Math.round(delta / 12);
   ballMidi = ballMidi === null ? delta : ballMidi + (delta - ballMidi) * 0.35;   // suavizado
   const shown = Math.max(-8, Math.min(8, ballMidi));
   // 12 semitonos = 7 posiciones del pentagrama; cada posición es media separación entre líneas
@@ -1223,7 +1242,7 @@ function moveBall(midi, targetN = current().ask[0]) {
 }
 function singResult(ok) {
   const card = current();
-  if (!ok) playMidi(comfy(card.ask[0]), 0.2);
+  if (!ok) playMidi(singMidi(card.ask[0]), 0.2);
   const heard = $('heard');
   if (heard && ok) { heard.textContent = nameOf(card.ask[0]); heard.className = 'heard ok'; $('hold').style.width = '100%'; }
 }
@@ -1316,7 +1335,7 @@ $('rhythm-listen').addEventListener('click', () => {
   const countStart = ac.currentTime + 0.15, t0 = countStart + 4 * spb;
   for (let b = 0; b < 12; b++) clickAt(ac, out, countStart + b * spb, b % 4 === 0);
   card.ev.forEach(e => {
-    if (e.n !== null) playMidi(comfy(e.n), t0 + e.b * spb - ac.currentTime - 0.02, Math.max(0.5, e.d * spb), ac, out);
+    if (e.n !== null) playMidi(singMidi(e.n), t0 + e.b * spb - ac.currentTime - 0.02, Math.max(0.5, e.d * spb), ac, out);
   });
   rp = { out, countStart, t0, spb, idx: -1 };
   $('rhythm-listen').textContent = '■ Parar';
@@ -1350,7 +1369,7 @@ function startRhythm() {
   const ac = audio();
   ['rhythm-go', 'rhythm-listen'].forEach(id => { $(id).disabled = true; });
   const spb = 60 / card.bpm;
-  const ref = playMidi(comfy(card.notes[0]));
+  const ref = playMidi(singMidi(card.notes[0]));
   const countStart = ac.currentTime + ref + 0.25, t0 = countStart + 4 * spb;
   const out = ac.createGain();
   out.connect(ac.destination);
@@ -1402,7 +1421,7 @@ function rhythmTick() {
   if (i !== rh.idx) {
     if (rh.idx >= 0 && !judgeRhythm(rh.idx)) return;
     if (i < 0) return rhythmDone();
-    rh.idx = i; rh.inTune = 0; rh.voiced = 0; rh.heard = {}; ballMidi = null;
+    rh.idx = i; rh.inTune = 0; rh.voiced = 0; rh.heard = {}; rh.wrongOctave = 0; ballMidi = null;
     setRState(i, 'cur');
   }
   const e = card.ev[i], into = (t - e.b) * rh.spb, dur = e.d * rh.spb;
@@ -1412,7 +1431,8 @@ function rhythmTick() {
       const pc = ((Math.round(sung) % 12) + 12) % 12;
       rh.voiced += dt;
       rh.heard[pc] = (rh.heard[pc] || 0) + dt;
-      if (pcOk(e.n, pc)) {
+      if (!noteOk(e.n, sung) && pcOk(e.n, pc)) rh.wrongOctave = (rh.wrongOctave || 0) + dt;
+      if (noteOk(e.n, sung)) {
         rh.inTune += dt;
         rh.level = rh.level ? rh.level * 0.9 + lastRms * 0.1 : lastRms;     // volumen con el que cantas
       }
@@ -1442,6 +1462,7 @@ function judgeRhythm(i) {
       const top = Object.entries(rh.heard).sort((a, b) => b[1] - a[1])[0];
       const why = rh.voiced < 0.08 ? 'no se te oyó a tiempo'
         : top && !pcOk(e.n, +top[0]) ? `cantaste ${CHROMA[cfg.names][+top[0]]}`
+        : rh.wrongOctave > 0.1 ? 'la cantaste en otra octava'
         : 'duró demasiado poco';
       rh.firstError = `la ${k}.ª nota era ${nameOf(e.n)} y ${why}`;
     }
@@ -1746,7 +1767,7 @@ $('clefs').addEventListener('change', () => {
   saveCfg(); renderHome();
 });
 $('opt-rlevel').innerHTML = RLEVELS.slice(1).map((l, i) => `<option value="${i + 1}">${l.name}</option>`).join('');
-for (const [id, key, num] of [['opt-ledger', 'ledger', true], ['opt-dir', 'dir'], ['opt-len', 'len', true], ['opt-names', 'names'], ['opt-sound', 'sound'], ['opt-rlevel', 'rlevel', true], ['opt-bpm', 'bpm', true], ['opt-tune', 'tune'], ['opt-step', 'step']]) {
+for (const [id, key, num] of [['opt-ledger', 'ledger', true], ['opt-dir', 'dir'], ['opt-len', 'len', true], ['opt-names', 'names'], ['opt-sound', 'sound'], ['opt-rlevel', 'rlevel', true], ['opt-bpm', 'bpm', true], ['opt-tune', 'tune'], ['opt-step', 'step'], ['opt-octave', 'octave']]) {
   $(id).value = cfg[key];
   $(id).addEventListener('change', e => { cfg[key] = num ? +e.target.value : e.target.value; saveCfg(); renderHome(); });
 }

@@ -865,11 +865,11 @@ const RNOTES = [
   [32, 'Sol', '2.ª línea'], [33, 'La', '2.º espacio'], [34, 'Si', '3.ª línea'], [35, 'Do', '3.er espacio'],
   [36, 'Re', '4.ª línea'], [37, 'Mi', '4.º espacio'], [38, 'Fa', '5.ª línea'], [39, 'Sol', 'encima'],
 ];
-const METERS = [2, 3, 4];
-// Dos compases al azar con las figuras, silencios, notas y compases elegidos.
+const METERS = [2, 3, 4], BARS = { 2: 4, 3: 3, 4: 2 };
+// Unos ocho pulsos al azar (cuatro compases de 2/4, tres de 3/4 o dos de 4/4) con las figuras, silencios, notas y compases elegidos.
 // Cada evento: { n (null = silencio), b (pulso de inicio, en negras), d (duración en negras) }
 function makeRhythm() {
-  const ts = pick(cfg.rmeters.length ? cfg.rmeters : [4]);
+  const ts = pick(cfg.rmeters.length ? cfg.rmeters : [4]), bars = BARS[ts];
   const pool = (cfg.rnotes.length ? cfg.rnotes : [30, 32]).slice().sort((a, b) => a - b);
   const figs = cfg.rfigs.map(k => FIG_DUR[k]), rests = cfg.rrests.map(k => FIG_DUR[k]);
   const ev = [];
@@ -885,7 +885,7 @@ function makeRhythm() {
     for (const o of opts) if ((x -= o.w) < 0) return o;
     return opts[opts.length - 1];
   };
-  for (let bar = 0; bar < 2; bar++) {
+  for (let bar = 0; bar < bars; bar++) {
     let beat = 0;
     while (beat < ts) {
       const left = ts - beat;
@@ -915,7 +915,7 @@ function makeRhythm() {
   }
   if (!ev.some(e => e.n !== null)) ev[0].n = note();   // al menos una nota que cantar
   const pitched = ev.filter(e => e.n !== null).map(e => e.n);
-  return { type: 'rhythm', c: 'treble', ts, bpm: cfg.bpm, ev, notes: pitched, ask: pitched };
+  return { type: 'rhythm', c: 'treble', ts, bars, bpm: cfg.bpm, ev, notes: pitched, ask: pitched };
 }
 function makeCard(type) {
   if (type === 'rhythm') return makeRhythm();
@@ -1325,21 +1325,38 @@ const R_ATTACK = 0.05;    // s del principio de cada nota que no cuentan
 let rStates = [], rhGeo = null, rh = null;
 // Dibuja los dos compases y devuelve dónde queda cada nota o silencio
 function drawRhythm(el, card, states, W) {
-  const ts = card.ts || 4;
-  W = W || (card.ev.length > 14 ? 720 : 560);
+  const ts = card.ts || 4, bars = card.bars || 2;
+  W = W || 560;
+  // Con muchas notas, los compases se reparten en dos pentagramas; cada compás, ancho según sus notas
+  const lines = card.ev.length > 16 && bars > 1 ? 2 : 1, perLine = Math.ceil(bars / lines);
+  const LINE_H = 95, TOP = lines > 1 ? 10 : 35, HH = lines > 1 ? TOP + lines * LINE_H + 10 : H;
+  const count = [...Array(bars).keys()].map(bar => card.ev.filter(e => Math.floor(e.b / ts + 1e-9) === bar).length);
+  const weight = bar => 2 + count[bar];
   el.innerHTML = '';
   if (!VF) { el.textContent = 'No se ha podido dibujar el pentagrama. Recarga la página.'; return null; }
   const renderer = new VF.Renderer(el, VF.Renderer.Backends.SVG);
-  renderer.resize(W, H);
+  renderer.resize(W, HH);
   const ctx = renderer.getContext();
   const ink = cssVar('--fg'), okC = cssVar('--ok'), badC = cssVar('--bad'), curC = cssVar('--gold');   // la nota que toca, en dorado
   ctx.setFillStyle(ink); ctx.setStrokeStyle(ink);
-  const barW = (W - 20) / 2, geo = [];
+  const geo = [], xs = [], ws = [];
+  for (let l = 0; l < lines; l++) {
+    const ids = [...Array(bars).keys()].slice(l * perLine, (l + 1) * perLine);
+    const lead = l === 0 ? 70 : 40;   // la clave (y en el primero, el compás)
+    const tot = ids.reduce((a, b) => a + weight(b), 0);
+    let x = 10;
+    ids.forEach((bar, k) => {
+      const w = (W - 20 - lead) * weight(bar) / tot + (k ? 0 : lead);
+      xs[bar] = x; ws[bar] = w; x += w;
+    });
+  }
   let gap = 10;
-  [0, 1].forEach(bar => {
-    const st = new VF.Stave(10 + bar * barW, 35, barW, { fill_style: ink });
-    if (bar === 0) st.addClef('treble').addTimeSignature(`${ts}/4`);
-    if (bar === 1) st.setEndBarType(VF.Barline.type.END);
+  [...Array(bars).keys()].forEach(bar => {
+    const line = Math.floor(bar / perLine);
+    const st = new VF.Stave(xs[bar], TOP + line * LINE_H, ws[bar], { fill_style: ink });
+    if (bar % perLine === 0) st.addClef('treble');
+    if (bar === 0) st.addTimeSignature(`${ts}/4`);
+    if (bar === bars - 1) st.setEndBarType(VF.Barline.type.END);
     st.setContext(ctx).draw();
     gap = st.getSpacingBetweenLines();
     const evs = card.ev.map((e, i) => ({ ...e, i })).filter(e => Math.floor(e.b / ts + 1e-9) === bar);
@@ -1356,7 +1373,7 @@ function drawRhythm(el, card, states, W) {
     });
     const beams = VF.Beam.generateBeams(notes, { groups: [new VF.Fraction(1, 4)] });   // corcheas y semicorcheas unidas por pulso
     const voice = new VF.Voice({ num_beats: ts, beat_value: 4 }).setStrict(false).addTickables(notes);
-    new VF.Formatter().joinVoices([voice]).format([voice], barW - (bar === 0 ? 85 : 30));
+    new VF.Formatter().joinVoices([voice]).format([voice], st.getNoteEndX() - st.getNoteStartX() - 15);
     voice.draw(ctx, st);
     beams.forEach(b => b.setContext(ctx).draw());
     notes.forEach((sn, k) => {
@@ -1365,7 +1382,7 @@ function drawRhythm(el, card, states, W) {
     });
   });
   const svg = el.querySelector('svg');
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('viewBox', `0 0 ${W} ${HH}`);
   svg.removeAttribute('width'); svg.removeAttribute('height');
   svg.style.width = ''; svg.style.height = '';
   return { svg, ev: geo, gap };
@@ -1402,7 +1419,7 @@ $('rhythm-listen').addEventListener('click', () => {
   const ac = audio(), spb = 60 / card.bpm;
   const out = ac.createGain();
   out.connect(ac.destination);
-  const ts = card.ts || 4, total = 2 * ts;
+  const ts = card.ts || 4, total = (card.bars || 2) * ts;
   const countStart = ac.currentTime + 0.15, t0 = countStart + ts * spb;
   if (cfg.metro === 'both') for (let b = 0; b < ts + total; b++) clickAt(ac, out, countStart + b * spb, b % ts === 0);
   card.ev.forEach(e => {
@@ -1442,7 +1459,7 @@ function startRhythm() {
   ['rhythm-go', 'rhythm-listen'].forEach(id => { $(id).disabled = true; });
   const spb = 60 / card.bpm;
   const ref = playMidi(singMidi(card.notes[0]));
-  const ts = card.ts || 4, total = 2 * ts;
+  const ts = card.ts || 4, total = (card.bars || 2) * ts;
   const countStart = ac.currentTime + ref + 0.25, t0 = countStart + ts * spb;
   const out = ac.createGain();
   out.connect(ac.destination);

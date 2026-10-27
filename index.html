@@ -386,8 +386,9 @@ footer.note a { color: inherit; }
         <label for="opt-octave">Octava al cantar</label>
         <select id="opt-octave">
           <option value="any">Cualquier octava</option>
-          <option value="low">Siempre una octava por debajo de lo escrito</option>
+          <option value="low">Una octava más grave que lo escrito</option>
         </select>
+        <span class="hint">La nota suena en su octava normal; con la segunda opción hay que cantarla una octava más grave, más cómodo para voces graves.</span>
       </div>
       <div class="field opt-tune">
         <label for="opt-tune">Exigencia con la afinación</label>
@@ -753,8 +754,8 @@ function playMidi(m, delay = 0, dur = 1.6, ac = audio(), dest = null) {
 // Nota escrita en una octava cómoda para escucharla (entre Do3 y Si4)
 const comfy = n => { let m = midiOf(n); while (m < 48) m += 12; while (m > 71) m -= 12; return m; };
 function playNote(n) { if (cfg.sound === 'on') playMidi(comfy(n)); }
-// Nota que se canta: en cualquier octava (suena en una octava cómoda) o exactamente una octava por debajo de lo escrito
-const singMidi = n => cfg.octave === 'low' ? midiOf(n) - 12 : comfy(n);
+// La referencia suena siempre en su octava normal (aunque se exija cantarla una octava más grave)
+const singMidi = n => comfy(n);
 
 // ---------- Micrófono y detección de tono ----------
 let mic = null;
@@ -1157,7 +1158,7 @@ function noteOk(n, sung, type = current().type) {
   const pc = ((Math.round(sung) % 12) + 12) % 12;
   if (!pcOk(n, pc, type)) return false;
   if (cfg.octave !== 'low' || (cfg.tune === 'ritmo' && type === 'rhythm')) return true;
-  return Math.abs(sung - (midiOf(n) - 12)) <= 6;   // la nota correcta, en la octava de debajo (no en otra)
+  return Math.abs(sung - (midiOf(n) - 12)) <= 6;   // la nota correcta, una octava más grave que la escrita
 }
 function pcOk(n, pc, type = current().type) {
   const tune = type === 'sing' && cfg.tune === 'ritmo' ? 'flexible' : cfg.tune;   // en Entonar siempre se mira el tono
@@ -1206,7 +1207,7 @@ function listenTick() {
   bar.style.width = Math.min(100, 100 * hold / HOLD_OK) + '%';
   if (hold >= HOLD_OK) finishCard(true);
   else if (wrongHold >= HOLD_WRONG) finishCard(false, pcOk(current().ask[0], pc)
-    ? `Has cantado ${CHROMA[cfg.names][pc]} en otra octava: va una octava por debajo de lo escrito`
+    ? `Has cantado ${CHROMA[cfg.names][pc]} en otra octava: va una octava más grave que lo escrito`
     : `Has cantado ${CHROMA[cfg.names][pc]}; era ${nameOf(current().ask[0])}`);
 }
 // Bola que sigue el tono que cantas junto a la nota: sube y baja contigo y va de rojo (lejos) a verde (en la nota)
@@ -1229,7 +1230,7 @@ function moveBall(midi, targetN = current().ask[0]) {
   // Da igual la octava: se compara con la octava de la nota escrita más cercana a lo que cantas
   const target = midiOf(targetN);
   let delta = midi - target;
-  if (cfg.octave === 'low') delta = midi - (target - 12);   // se compara con la octava de abajo, sin plegar
+  if (cfg.octave === 'low') delta = midi - (target - 12);   // se compara con la octava grave, sin plegar
   else delta -= 12 * Math.round(delta / 12);
   ballMidi = ballMidi === null ? delta : ballMidi + (delta - ballMidi) * 0.35;   // suavizado
   const shown = Math.max(-8, Math.min(8, ballMidi));
@@ -1431,7 +1432,7 @@ function rhythmTick() {
       const pc = ((Math.round(sung) % 12) + 12) % 12;
       rh.voiced += dt;
       rh.heard[pc] = (rh.heard[pc] || 0) + dt;
-      if (!noteOk(e.n, sung) && pcOk(e.n, pc)) rh.wrongOctave = (rh.wrongOctave || 0) + dt;
+      if (!noteOk(e.n, sung) && pcOk(e.n, pc)) rh.wrongOctave += dt;
       if (noteOk(e.n, sung)) {
         rh.inTune += dt;
         rh.level = rh.level ? rh.level * 0.9 + lastRms * 0.1 : lastRms;     // volumen con el que cantas
@@ -1462,7 +1463,7 @@ function judgeRhythm(i) {
       const top = Object.entries(rh.heard).sort((a, b) => b[1] - a[1])[0];
       const why = rh.voiced < 0.08 ? 'no se te oyó a tiempo'
         : top && !pcOk(e.n, +top[0]) ? `cantaste ${CHROMA[cfg.names][+top[0]]}`
-        : rh.wrongOctave > 0.1 ? 'la cantaste en otra octava'
+        : rh.wrongOctave > 0.1 ? 'la cantaste en otra octava (va una más grave)'
         : 'duró demasiado poco';
       rh.firstError = `la ${k}.ª nota era ${nameOf(e.n)} y ${why}`;
     }

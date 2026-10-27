@@ -116,7 +116,8 @@ fieldset.field { margin: 0; min-width: 0; }
 }
 .checks { display: flex; flex-direction: column; gap: 6px; }
 .checks label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
-.checks input { width: 20px; height: 20px; accent-color: var(--accent); margin: 0; }
+.checks input { flex-shrink: 0; width: 20px; height: 20px; accent-color: var(--accent); margin: 0; }
+.checks.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
 .start { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
 .start .record { text-align: center; color: var(--gold); font-weight: 700; margin: 0; min-height: 1.5em; }
 .msg { margin: 0; color: var(--bad); font-weight: 700; text-align: center; }
@@ -226,6 +227,9 @@ footer.note a { color: inherit; }
 .deck.wide { aspect-ratio: 16 / 9; width: min(820px, 100%, calc((100dvh - 300px) * 16 / 9)); }
 .card .count { position: absolute; top: 2.4cqw; right: 4cqw; font-size: 9cqw; font-weight: 700; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; min-width: 1ch; text-align: right; }
 .card .staff.rhythm { flex: 1; }
+@keyframes beatpulse { from { transform: scale(1.35); } }
+.card .count.pulse { animation: beatpulse .25s ease-out; }
+.card .count.accent { color: var(--gold); }
 .sing-controls button { flex: 1 1 160px; }
 
 /* Resultados */
@@ -401,9 +405,30 @@ footer.note a { color: inherit; }
           <option value="ritmo">Solo ritmo: cualquier tono (en el solfeo)</option>
         </select>
       </div>
+      <fieldset class="field opt-rhythm">
+        <legend>Figuras</legend>
+        <div class="checks" id="r-figs"></div>
+      </fieldset>
+      <fieldset class="field opt-rhythm">
+        <legend>Silencios</legend>
+        <div class="checks" id="r-rests"></div>
+      </fieldset>
+      <fieldset class="field opt-rhythm">
+        <legend>Notas (clave de Sol)</legend>
+        <div class="checks two-col" id="r-notes"></div>
+      </fieldset>
+      <fieldset class="field opt-rhythm">
+        <legend>Compases</legend>
+        <div class="checks" id="r-meters"></div>
+      </fieldset>
       <div class="field opt-rhythm">
-        <label for="opt-rlevel">Nivel del solfeo</label>
-        <select id="opt-rlevel"></select>
+        <label for="opt-metro">Metrónomo</label>
+        <select id="opt-metro">
+          <option value="both">Sonoro y visual</option>
+          <option value="visual">Solo visual</option>
+          <option value="off">Sin metrónomo</option>
+        </select>
+        <span class="hint">La cuenta de entrada se ve siempre; los clics suenan solo con el metrónomo sonoro.</span>
       </div>
       <div class="field opt-rhythm">
         <label for="opt-bpm">Tempo</label>
@@ -682,7 +707,7 @@ const SPEED = { read: [2000, 8000], chain: [900, 3500], sing: [3000, 12000], rhy
 
 // ---------- Opciones, partida y récords en localStorage ----------
 const CFG_KEY = 'solfeo-fichas-v4', GAME_KEY = 'solfeo-fichas-partida-v5', REC_KEY = 'solfeo-fichas-records-v4';
-const DEFAULTS = { types: ['read'], clefs: ['treble', 'bass'], ledger: 1, size: 7, names: 'es', dir: 'both', len: 5, sound: 'on', rlevel: 1, bpm: 60, tune: 'normal', step: 'mixed', octave: 'any' };
+const DEFAULTS = { types: ['read'], clefs: ['treble', 'bass'], ledger: 1, size: 7, names: 'es', dir: 'both', len: 5, sound: 'on', bpm: 60, rfigs: ['h', 'q', '8'], rrests: ['q'], rnotes: [28, 29, 30, 31, 32, 33], rmeters: [4], metro: 'both', tune: 'normal', step: 'mixed', octave: 'any' };
 function load(key, fallback) { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch (e) { return fallback; } }
 function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 // Entonar solo existe si el navegador puede usar el micrófono
@@ -693,8 +718,11 @@ cfg.types = (cfg.types || []).filter(t => TYPES[t] && (!NEEDS_MIC(t) || CAN_SING
 if (!cfg.types.length) cfg.types = DEFAULTS.types.slice();
 cfg.clefs = (cfg.clefs || []).filter(c => CLEFS[c]);
 if (!cfg.clefs.length) cfg.clefs = DEFAULTS.clefs.slice();
+for (const k of ['rfigs', 'rrests', 'rnotes', 'rmeters']) if (!Array.isArray(cfg[k])) cfg[k] = DEFAULTS[k].slice();
+if (!['both', 'visual', 'off'].includes(cfg.metro)) cfg.metro = 'both';
+delete cfg.rlevel;
 let game = load(GAME_KEY, null);
-if (!game || game.v !== 5 || !Array.isArray(game.cards) || game.cards.some(c => c.type === 'chain' && !c.c)) game = null;
+if (!game || game.v !== 5 || !Array.isArray(game.cards) || game.cards.some(c => (c.type === 'chain' && !c.c) || (c.type === 'rhythm' && !c.ts))) game = null;
 let records = load(REC_KEY, {});
 const saveCfg = () => store(CFG_KEY, cfg), saveGame = () => store(GAME_KEY, game), saveRecords = () => store(REC_KEY, records);
 
@@ -828,43 +856,66 @@ function detectPitch() {
 
 // ---------- Mazo ----------
 // Cada ficha tiene su tipo, "notes" (las que se dibujan o recitan) y "ask" (las que hay que nombrar o cantar, en orden)
-// Niveles del solfeo con metrónomo: cada uno añade una figura o una nota (índice diatónico: Do4 = 28)
-const RLEVELS = [
-  null,
-  { name: '1 · Negras y silencios · Sol y Mi', notes: [32, 30] },
-  { name: '2 · Corcheas · Sol y Mi', notes: [32, 30], eighths: true },
-  { name: '3 · Nota nueva: Do', notes: [32, 30, 28], eighths: true },
-  { name: '4 · Nota nueva: La', notes: [33, 32, 30, 28], eighths: true },
-  { name: '5 · Notas nuevas: Re y Fa', notes: [33, 32, 31, 30, 29, 28], eighths: true },
-  { name: '6 · La blanca', notes: [33, 32, 31, 30, 29, 28], eighths: true, halves: true },
-  { name: '7 · Notas nuevas: Si y Do agudo', notes: [35, 34, 33, 32, 31, 30, 29, 28], eighths: true, halves: true },
-  { name: '8 · Notas nuevas: Re y Mi agudos', notes: [37, 36, 35, 34, 33, 32, 31, 30, 29, 28], eighths: true, halves: true },
+// Figuras del solfeo (duración en negras) y notas disponibles en clave de Sol (índice diatónico: Do4 = 28)
+const FIGS = [['w', 4, 'Redonda'], ['h', 2, 'Blanca'], ['q', 1, 'Negra'], ['8', 0.5, 'Corchea'], ['16', 0.25, 'Semicorchea']];
+const FIG_DUR = Object.fromEntries(FIGS.map(([k, d]) => [k, d]));
+const VF_DUR = { 4: 'w', 2: 'h', 1: 'q', 0.5: '8', 0.25: '16' };
+const RNOTES = [
+  [28, 'Do', 'línea adicional'], [29, 'Re', 'debajo'], [30, 'Mi', '1.ª línea'], [31, 'Fa', '1.er espacio'],
+  [32, 'Sol', '2.ª línea'], [33, 'La', '2.º espacio'], [34, 'Si', '3.ª línea'], [35, 'Do', '3.er espacio'],
+  [36, 'Re', '4.ª línea'], [37, 'Mi', '4.º espacio'], [38, 'Fa', '5.ª línea'], [39, 'Sol', 'encima'],
 ];
-// Dos compases de 4/4 al azar con las figuras y notas del nivel. Cada evento: { n (null = silencio), b (pulso de inicio), d (duración en pulsos) }
+const METERS = [2, 3, 4];
+// Dos compases al azar con las figuras, silencios, notas y compases elegidos.
+// Cada evento: { n (null = silencio), b (pulso de inicio, en negras), d (duración en negras) }
 function makeRhythm() {
-  const L = RLEVELS[cfg.rlevel] || RLEVELS[1], ev = [];
-  let beat = 0, prev = null, lastRest = false;
+  const ts = pick(cfg.rmeters.length ? cfg.rmeters : [4]);
+  const pool = (cfg.rnotes.length ? cfg.rnotes : [30, 32]).slice().sort((a, b) => a - b);
+  const figs = cfg.rfigs.map(k => FIG_DUR[k]), rests = cfg.rrests.map(k => FIG_DUR[k]);
+  const ev = [];
+  let prev = null, lastRest = false;
   const note = () => {
-    const near = L.notes.filter(n => prev === null || Math.abs(n - prev) <= 2);
-    prev = pick(near.length ? near : L.notes);
+    const near = pool.filter(n => prev === null || Math.abs(n - prev) <= 2);
+    prev = pick(near.length ? near : pool);
     return prev;
   };
-  while (beat < 8) {
-    // Figura al azar con pesos: negra 30 %, corcheas 35 %, blanca 20 % (en tiempo fuerte), silencio 15 %
-    const opts = [['q', 30]];
-    if (L.eighths) opts.push(['8', 35]);
-    if (L.halves && beat % 2 === 0) opts.push(['h', 20]);
-    if (beat > 0 && beat < 7 && !lastRest) opts.push(['r', 15]);
-    let x = Math.random() * opts.reduce((a, o) => a + o[1], 0), kind = 'q';
-    for (const [k, w] of opts) { if ((x -= w) < 0) { kind = k; break; } }
-    if (kind === 'h') { ev.push({ n: note(), b: beat, d: 2 }); beat += 2; }
-    else if (kind === 'r') { ev.push({ n: null, b: beat, d: 1 }); beat += 1; }
-    else if (kind === '8') { ev.push({ n: note(), b: beat, d: 0.5 }, { n: note(), b: beat + 0.5, d: 0.5 }); beat += 1; }
-    else { ev.push({ n: note(), b: beat, d: 1 }); beat += 1; }
-    lastRest = kind === 'r';
+  const push = (rest, b, d) => { ev.push({ n: rest ? null : note(), b, d }); lastRest = rest; };
+  const weighted = opts => {
+    let x = Math.random() * opts.reduce((a, o) => a + o.w, 0);
+    for (const o of opts) if ((x -= o.w) < 0) return o;
+    return opts[opts.length - 1];
+  };
+  for (let bar = 0; bar < 2; bar++) {
+    let beat = 0;
+    while (beat < ts) {
+      const left = ts - beat;
+      // Figuras de un pulso o más: caben en lo que queda y empiezan donde se leen bien
+      const fits = d => d >= 1 && d <= left && (d === 1 || (d === 2 && (ts !== 4 || beat % 2 === 0)) || (d === 4 && ts === 4 && beat === 0));
+      const opts = [];
+      figs.filter(fits).forEach(d => opts.push({ k: 'n', d, w: 3 }));
+      if (!lastRest) rests.filter(fits).forEach(d => opts.push({ k: 'r', d, w: 1 }));
+      const subN = figs.filter(d => d < 1), subR = rests.filter(d => d < 1);
+      if (subN.length) opts.push({ k: 'sub', d: 1, w: 3 * subN.length });
+      if (!opts.length) opts.push({ k: 'n', d: 1, w: 1 });   // nada cabe: una negra
+      const o = weighted(opts);
+      if (o.k !== 'sub') { push(o.k === 'r', bar * ts + beat, o.d); beat += o.d; continue; }
+      // Un pulso dividido en corcheas y semicorcheas (sin cruzar el pulso)
+      let pos = 0;
+      while (pos < 1 - 1e-9) {
+        const can = [];
+        subN.forEach(d => { if (pos + d <= 1 + 1e-9 && (d !== 0.5 || pos % 0.5 === 0)) can.push({ k: 'n', d, w: 3 }); });
+        if (!lastRest) subR.forEach(d => { if (pos + d <= 1 + 1e-9 && (d !== 0.5 || pos % 0.5 === 0)) can.push({ k: 'r', d, w: 1 }); });
+        if (!can.length) can.push({ k: 'n', d: subN.includes(0.25) ? 0.25 : 1 - pos, w: 1 });
+        const c = weighted(can);
+        push(c.k === 'r', bar * ts + beat + pos, c.d);
+        pos += c.d;
+      }
+      beat += 1;
+    }
   }
+  if (!ev.some(e => e.n !== null)) ev[0].n = note();   // al menos una nota que cantar
   const pitched = ev.filter(e => e.n !== null).map(e => e.n);
-  return { type: 'rhythm', c: 'treble', level: cfg.rlevel, bpm: cfg.bpm, ev, notes: pitched, ask: pitched };
+  return { type: 'rhythm', c: 'treble', ts, bpm: cfg.bpm, ev, notes: pitched, ask: pitched };
 }
 function makeCard(type) {
   if (type === 'rhythm') return makeRhythm();
@@ -912,7 +963,7 @@ function signature(c = cfg) {
   const parts = [types.join('+'), c.size];
   if (types.includes('chain')) parts.push(c.dir, c.len, c.step);
   if (usesStaff(types)) parts.push(c.clefs.slice().sort().join('+'), c.ledger);
-  if (types.includes('rhythm')) parts.push('n' + c.rlevel, c.bpm);
+  if (types.includes('rhythm')) parts.push(c.rfigs.join(''), c.rrests.join(''), c.rnotes.join('.'), c.rmeters.join(''), c.bpm, c.metro);
   if (types.includes('rhythm') || types.includes('sing')) parts.push(c.tune, c.octave);
   return parts.join('|');
 }
@@ -960,7 +1011,7 @@ function renderCardFace() {
   const el = $('card');
   const corner = `<span class="corner">${game.pos + 1} / ${game.queue.length}</span>`;
   if (card.type === 'rhythm') {
-    el.innerHTML = `${corner}<p class="prompt">Lee y entona a tempo · <b>negra = ${card.bpm}</b></p><div class="staff rhythm"></div><div class="count" id="count"></div><p class="tuner-note" id="count-hint">${rh || rp ? '' : 'Pulsa Comenzar: suena la primera nota, un compás de cuenta y empiezas tras el 4.'}</p>`;
+    el.innerHTML = `${corner}<p class="prompt">Lee y entona a tempo · <b>negra = ${card.bpm}</b></p><div class="staff rhythm"></div><div class="count" id="count"></div><p class="tuner-note" id="count-hint">${rh || rp ? '' : `Pulsa Comenzar: suena la primera nota, un compás de cuenta y empiezas tras el ${card.ts || 4}${cfg.metro === 'both' ? '' : cfg.metro === 'visual' ? ' (metrónomo solo visual)' : ' (sin metrónomo)'}.`}</p>`;
     rhGeo = drawRhythm(el.querySelector('.staff'), card, rStates);
     if (rhGeo) addPitchBall({ svg: rhGeo.svg, gap: rhGeo.gap, x: rhGeo.ev[0].x, y: rhGeo.ev[0].y });
     return;
@@ -1273,7 +1324,9 @@ const latencyOf = ac => Math.min(0.6, (ac.outputLatency || 0) + (ac.baseLatency 
 const R_ATTACK = 0.05;    // s del principio de cada nota que no cuentan
 let rStates = [], rhGeo = null, rh = null;
 // Dibuja los dos compases y devuelve dónde queda cada nota o silencio
-function drawRhythm(el, card, states, W = 560) {
+function drawRhythm(el, card, states, W) {
+  const ts = card.ts || 4;
+  W = W || (card.ev.length > 14 ? 720 : 560);
   el.innerHTML = '';
   if (!VF) { el.textContent = 'No se ha podido dibujar el pentagrama. Recarga la página.'; return null; }
   const renderer = new VF.Renderer(el, VF.Renderer.Backends.SVG);
@@ -1285,15 +1338,15 @@ function drawRhythm(el, card, states, W = 560) {
   let gap = 10;
   [0, 1].forEach(bar => {
     const st = new VF.Stave(10 + bar * barW, 35, barW, { fill_style: ink });
-    if (bar === 0) st.addClef('treble').addTimeSignature('4/4');
+    if (bar === 0) st.addClef('treble').addTimeSignature(`${ts}/4`);
     if (bar === 1) st.setEndBarType(VF.Barline.type.END);
     st.setContext(ctx).draw();
     gap = st.getSpacingBetweenLines();
-    const evs = card.ev.map((e, i) => ({ ...e, i })).filter(e => Math.floor(e.b / 4) === bar);
+    const evs = card.ev.map((e, i) => ({ ...e, i })).filter(e => Math.floor(e.b / ts + 1e-9) === bar);
     const notes = evs.map(e => {
-      const dur = e.d === 2 ? 'h' : e.d === 1 ? 'q' : '8';
+      const dur = VF_DUR[e.d] || 'q';
       const sn = e.n === null
-        ? new VF.StaveNote({ clef: 'treble', keys: ['b/4'], duration: dur + 'r' })
+        ? new VF.StaveNote({ clef: 'treble', keys: [dur === 'w' ? 'd/5' : 'b/4'], duration: dur + 'r' })
         : new VF.StaveNote({ clef: 'treble', keys: [vfKey(e.n)], duration: dur });
       const s = states[e.i];
       const c = s === 'ok' ? okC : s === 'bad' ? badC : s === 'cur' ? curC : ink;
@@ -1301,8 +1354,8 @@ function drawRhythm(el, card, states, W = 560) {
       if (e.n !== null) sn.setLedgerLineStyle({ fillStyle: ink, strokeStyle: ink });
       return sn;
     });
-    const beams = VF.Beam.generateBeams(notes);
-    const voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false).addTickables(notes);
+    const beams = VF.Beam.generateBeams(notes, { groups: [new VF.Fraction(1, 4)] });   // corcheas y semicorcheas unidas por pulso
+    const voice = new VF.Voice({ num_beats: ts, beat_value: 4 }).setStrict(false).addTickables(notes);
     new VF.Formatter().joinVoices([voice]).format([voice], barW - (bar === 0 ? 85 : 30));
     voice.draw(ctx, st);
     beams.forEach(b => b.setContext(ctx).draw());
@@ -1349,12 +1402,13 @@ $('rhythm-listen').addEventListener('click', () => {
   const ac = audio(), spb = 60 / card.bpm;
   const out = ac.createGain();
   out.connect(ac.destination);
-  const countStart = ac.currentTime + 0.15, t0 = countStart + 4 * spb;
-  for (let b = 0; b < 12; b++) clickAt(ac, out, countStart + b * spb, b % 4 === 0);
+  const ts = card.ts || 4, total = 2 * ts;
+  const countStart = ac.currentTime + 0.15, t0 = countStart + ts * spb;
+  if (cfg.metro === 'both') for (let b = 0; b < ts + total; b++) clickAt(ac, out, countStart + b * spb, b % ts === 0);
   card.ev.forEach(e => {
     if (e.n !== null) playMidi(singMidi(e.n), t0 + e.b * spb - ac.currentTime - 0.02, Math.max(0.5, e.d * spb), ac, out);
   });
-  rp = { out, countStart, t0, spb, idx: -1 };
+  rp = { out, countStart, t0, spb, ts, total, idx: -1, beat: -1 };
   $('rhythm-listen').textContent = '■ Parar';
   $('rhythm-go').disabled = true;
   rp.timer = setInterval(() => {
@@ -1366,15 +1420,16 @@ $('rhythm-listen').addEventListener('click', () => {
       return;
     }
     const t = (heardNow - rp.t0) / rp.spb;
-    if (t >= 8) return stopPlayback();
+    if (t >= rp.total) return stopPlayback();
+    showBeat(rp, heardNow, false);
     const i = card.ev.findIndex(e => t >= e.b && t < e.b + e.d);
     if (i !== rp.idx) {
       rp.idx = i;
       rStates = card.ev.map((_, k) => (k === i ? 'cur' : null));
       renderCardFace();
-      const c = $('count'), h = $('count-hint');
-      if (c) c.textContent = '';
+      const h = $('count-hint');
       if (h) h.textContent = 'Así suena: escucha y sigue la partitura';
+      rp.beat = -1; showBeat(rp, heardNow, false);
     }
   }, 30);
 });
@@ -1387,11 +1442,12 @@ function startRhythm() {
   ['rhythm-go', 'rhythm-listen'].forEach(id => { $(id).disabled = true; });
   const spb = 60 / card.bpm;
   const ref = playMidi(singMidi(card.notes[0]));
-  const countStart = ac.currentTime + ref + 0.25, t0 = countStart + 4 * spb;
+  const ts = card.ts || 4, total = 2 * ts;
+  const countStart = ac.currentTime + ref + 0.25, t0 = countStart + ts * spb;
   const out = ac.createGain();
   out.connect(ac.destination);
-  for (let b = 0; b < 12; b++) clickAt(ac, out, countStart + b * spb, b % 4 === 0);
-  rh = { spb, countStart, t0, out, lat: latencyOf(ac), idx: -1, inTune: 0, voiced: 0, heard: {}, last: ac.currentTime };
+  if (cfg.metro === 'both') for (let b = 0; b < ts + total; b++) clickAt(ac, out, countStart + b * spb, b % ts === 0);
+  rh = { spb, countStart, t0, out, ts, total, beat: -1, lat: latencyOf(ac), idx: -1, inTune: 0, voiced: 0, heard: {}, last: ac.currentTime };
   startedAt = performance.now();
   rh.timer = setInterval(rhythmTick, 25);
 }
@@ -1402,6 +1458,21 @@ function stopRhythm() {
   rh = null;
   const count = $('count');
   if (count) count.textContent = '';
+}
+// Metrónomo visual: el número del pulso dentro del compás, con un latido (el primero, en dorado)
+function showBeat(run, heardNow, countIn) {
+  const count = $('count');
+  if (!count) return;
+  if (!countIn && cfg.metro === 'off') { count.textContent = ''; return; }
+  const k = Math.floor((heardNow - run.countStart) / run.spb);
+  if (k < 0) { count.textContent = ''; return; }
+  const inBar = k % run.ts;
+  count.textContent = String(inBar + 1);
+  count.classList.toggle('accent', inBar === 0);
+  if (k !== run.beat) {
+    run.beat = k;
+    count.classList.remove('pulse'); void count.offsetWidth; count.classList.add('pulse');
+  }
 }
 function setRState(i, state) {
   rStates[i] = state;
@@ -1424,12 +1495,12 @@ function rhythmTick() {
   const hint = $('count-hint');
   if (heardNow < rh.countStart) { if (count) count.textContent = ''; if (hint) hint.textContent = 'Escucha la primera nota…'; return; }
   if (heardNow < rh.t0) {
-    if (count) count.textContent = String(Math.floor((heardNow - rh.countStart) / rh.spb) + 1);
-    if (hint) hint.textContent = 'Cuenta… empieza a cantar después del 4';
+    showBeat(rh, heardNow, true);
+    if (hint) hint.textContent = `Cuenta… empieza a cantar después del ${rh.ts}`;
     return;
   }
-  if (count) count.textContent = heardNow - rh.t0 < 0.6 * rh.spb ? '¡Ya!' : '';
-  if (hint) hint.textContent = '';
+  showBeat(rh, heardNow, false);
+  if (hint) hint.textContent = heardNow - rh.t0 < 0.6 * rh.spb ? '¡Ya!' : '';
   const t = (now - rh.lat - rh.t0) / rh.spb;   // pulso del ejercicio, compensando el retraso de altavoz y micrófono
   if (t < 0) return;
   const f = mic ? detectPitch() : null;
@@ -1440,6 +1511,8 @@ function rhythmTick() {
     if (i < 0) return rhythmDone();
     rh.idx = i; rh.inTune = 0; rh.voiced = 0; rh.heard = {}; rh.wrongOctave = 0; ballMidi = null;
     setRState(i, 'cur');
+    rh.beat = -1;
+    if (cfg.metro !== 'off') showBeat(rh, now - Math.min(0.4, (actx.outputLatency || 0) + (actx.baseLatency || 0)), false);
   }
   const e = card.ev[i], into = (t - e.b) * rh.spb, dur = e.d * rh.spb;
   if (e.n !== null) {
@@ -1457,7 +1530,7 @@ function rhythmTick() {
   } else {
     if (ball) ball.el.style.opacity = '0';
     const pc = sung === null ? null : ((Math.round(sung) % 12) + 12) % 12;
-    const nearClick = Math.abs(t - Math.round(t)) * rh.spb < 0.12;         // el clic del metrónomo no es voz
+    const nearClick = cfg.metro === 'both' && Math.abs(t - Math.round(t)) * rh.spb < 0.12;         // el clic del metrónomo no es voz
     const loud = lastRms > Math.max(0.015, 0.35 * (rh.level || 0.04));     // ruido de fondo o respiración, no
     const steady = pc !== null && pc === rh.prevPc;                         // una voz mantiene el tono entre lecturas
     if (steady && loud && !nearClick && into > 0.25 && into < dur - 0.12) rh.voiced += dt;
@@ -1488,7 +1561,7 @@ function judgeRhythm(i) {
   const restWin = Math.max(0, e.d * rh.spb - 0.37);
   if (rh.voiced > Math.min(0.3, 0.5 * restWin)) {
     rStates[i] = 'bad';
-    if (!rh.firstError) rh.firstError = `cantaste en el silencio del pulso ${Math.floor(e.b) % 4 + 1}`;
+    if (!rh.firstError) rh.firstError = `cantaste en el silencio del pulso ${Math.floor(e.b) % (card.ts || 4) + 1}`;
     return true;
   }
   rStates[i] = 'ok';
@@ -1567,7 +1640,7 @@ function showResults() {
   $('hard').innerHTML = hard.map(({ c, n }) => {
     const label = c.type === 'chain'
       ? c.ask.map(nameOf).join(' ')
-      : c.type === 'rhythm' ? `Solfeo, nivel ${c.level}`
+      : c.type === 'rhythm' ? `Solfeo en ${c.ts || 4}/4`
       : (c.type === 'sing' ? 'Cantar ' : '') + nameOf(c.ask[0]);
     return `<li>${c.c ? '<div class="mini"></div>' : ''}<span>${label} · ${n} ${n === 1 ? 'fallo' : 'fallos'}</span></li>`;
   }).join('');
@@ -1666,6 +1739,9 @@ function showMsg(t) { $('msg').textContent = t; $('msg').hidden = !t; }
 
 $('start').addEventListener('click', () => {
   if (usesStaff(cfg.types) && !cfg.clefs.length) { showMsg('Elige al menos una clave.'); return; }
+  if (cfg.types.includes('rhythm') && (!cfg.rfigs.length || !cfg.rnotes.length || !cfg.rmeters.length)) {
+    showMsg('Para el solfeo elige al menos una figura, una nota y un compás.'); return;
+  }
   showMsg('');
   newGame();
   openGame();
@@ -1783,8 +1859,21 @@ $('clefs').addEventListener('change', () => {
   showMsg(cfg.clefs.length ? '' : 'Elige al menos una clave.');
   saveCfg(); renderHome();
 });
-$('opt-rlevel').innerHTML = RLEVELS.slice(1).map((l, i) => `<option value="${i + 1}">${l.name}</option>`).join('');
-for (const [id, key, num] of [['opt-ledger', 'ledger', true], ['opt-dir', 'dir'], ['opt-len', 'len', true], ['opt-names', 'names'], ['opt-sound', 'sound'], ['opt-rlevel', 'rlevel', true], ['opt-bpm', 'bpm', true], ['opt-tune', 'tune'], ['opt-step', 'step'], ['opt-octave', 'octave']]) {
+// Casillas del solfeo: figuras, silencios, notas y compases
+function checkGroup(id, key, items) {
+  const box = $(id);
+  box.innerHTML = items.map(([v, label]) =>
+    `<label><input type="checkbox" value="${v}" ${cfg[key].map(String).includes(String(v)) ? 'checked' : ''}> ${label}</label>`).join('');
+  box.addEventListener('change', () => {
+    cfg[key] = [...box.querySelectorAll('input:checked')].map(i => (typeof items[0][0] === 'number' ? +i.value : i.value));
+    saveCfg(); renderHome();
+  });
+}
+checkGroup('r-figs', 'rfigs', FIGS.map(([k, , name]) => [k, name]));
+checkGroup('r-rests', 'rrests', FIGS.map(([k, , name]) => [k, 'De ' + name.toLowerCase()]));
+checkGroup('r-notes', 'rnotes', RNOTES.map(([n, name, where]) => [n, `${name} <span class="hint">(${where})</span>`]));
+checkGroup('r-meters', 'rmeters', METERS.map(m => [m, `${m}/4`]));
+for (const [id, key, num] of [['opt-ledger', 'ledger', true], ['opt-dir', 'dir'], ['opt-len', 'len', true], ['opt-names', 'names'], ['opt-sound', 'sound'], ['opt-metro', 'metro'], ['opt-bpm', 'bpm', true], ['opt-tune', 'tune'], ['opt-step', 'step'], ['opt-octave', 'octave']]) {
   $(id).value = cfg[key];
   $(id).addEventListener('change', e => { cfg[key] = num ? +e.target.value : e.target.value; saveCfg(); renderHome(); });
 }

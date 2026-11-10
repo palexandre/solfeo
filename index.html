@@ -118,6 +118,14 @@ fieldset.field { margin: 0; min-width: 0; }
 .checks label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .checks input { flex-shrink: 0; width: 20px; height: 20px; accent-color: var(--accent); margin: 0; }
 .checks.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+.wide-field { grid-column: 1 / -1; }
+.note-clef { border-top: 1px solid var(--line); padding-top: 8px; }
+.note-clef summary { cursor: pointer; font-weight: 700; padding: 4px 0; }
+.note-clef summary .hint { font-weight: 400; }
+.note-clef .presets { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.note-clef .presets button { font: inherit; font-size: .85rem; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; }
+.note-clef .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.note-clef .checks .hint { font-size: .8rem; }
 .start { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
 .start .record { text-align: center; color: var(--gold); font-weight: 700; margin: 0; min-height: 1.5em; }
 .msg { margin: 0; color: var(--bad); font-weight: 700; text-align: center; }
@@ -345,16 +353,11 @@ footer.note a { color: inherit; }
         <legend>Claves</legend>
         <div class="checks" id="clefs"></div>
       </fieldset>
-      <div class="field opt-staff">
-        <label for="opt-ledger">Líneas adicionales</label>
-        <span class="hint">Por encima y por debajo del pentagrama.</span>
-        <select id="opt-ledger">
-          <option value="0">Ninguna</option>
-          <option value="1">Hasta 1</option>
-          <option value="2">Hasta 2</option>
-          <option value="3">Hasta 3</option>
-        </select>
-      </div>
+      <fieldset class="field opt-notes wide-field">
+        <legend>Notas</legend>
+        <span class="hint">Las fichas solo usan las notas marcadas de cada clave (el solfeo, las de clave de Sol).</span>
+        <div id="note-picks"></div>
+      </fieldset>
       <div class="field opt-chain">
         <label for="opt-dir">Sentido de la escala</label>
         <select id="opt-dir">
@@ -390,11 +393,11 @@ footer.note a { color: inherit; }
         <label for="opt-octave">Octava al cantar</label>
         <select id="opt-octave">
           <option value="any">Cualquier octava</option>
+          <option value="grave">La de mi voz: grave (hombre)</option>
+          <option value="aguda">La de mi voz: aguda (mujer, niño)</option>
           <option value="exact">En la octava escrita</option>
-          <option value="low">Una octava más grave que lo escrito</option>
-          <option value="low2">Dos octavas más grave que lo escrito</option>
         </select>
-        <span class="hint">La nota suena siempre en su octava normal; lo que cambia es en qué octava hay que cantarla.</span>
+        <span class="hint">Con «la de mi voz», cada ficha se canta en la octava que mejor cae en tu registro (Sol2–Fa4 la grave, Sol3–Fa5 la aguda) y la nota de ejemplo suena justo ahí.</span>
       </div>
       <div class="field opt-tune">
         <label for="opt-tune">Exigencia con la afinación</label>
@@ -412,10 +415,6 @@ footer.note a { color: inherit; }
       <fieldset class="field opt-rhythm">
         <legend>Silencios</legend>
         <div class="checks" id="r-rests"></div>
-      </fieldset>
-      <fieldset class="field opt-rhythm">
-        <legend>Notas (clave de Sol)</legend>
-        <div class="checks two-col" id="r-notes"></div>
       </fieldset>
       <fieldset class="field opt-rhythm">
         <legend>Compases</legend>
@@ -707,20 +706,36 @@ const SPEED = { read: [2000, 8000], chain: [900, 3500], sing: [3000, 12000], rhy
 
 // ---------- Opciones, partida y récords en localStorage ----------
 const CFG_KEY = 'solfeo-fichas-v4', GAME_KEY = 'solfeo-fichas-partida-v5', REC_KEY = 'solfeo-fichas-records-v4';
-const DEFAULTS = { types: ['read'], clefs: ['treble', 'bass'], ledger: 1, size: 7, names: 'es', dir: 'both', len: 5, sound: 'on', bpm: 60, rfigs: ['h', 'q', '8'], rrests: ['q'], rnotes: [28, 29, 30, 31, 32, 33], rmeters: [4], metro: 'both', tune: 'normal', step: 'mixed', octave: 'any' };
+const DEFAULTS = { types: ['read'], clefs: ['treble', 'bass'], notes: null, size: 7, names: 'es', dir: 'both', len: 5, sound: 'on', bpm: 60, rfigs: ['h', 'q', '8'], rrests: ['q'], rmeters: [4], metro: 'both', tune: 'normal', step: 'mixed', octave: 'any' };
 function load(key, fallback) { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch (e) { return fallback; } }
 function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 // Entonar solo existe si el navegador puede usar el micrófono
 const CAN_SING = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+// Notas que se pueden elegir en cada clave: el pentagrama y hasta tres líneas adicionales por arriba y por abajo
+function noteSpan(c) { return [CLEFS[c].bottom - 7, CLEFS[c].top + 7]; }
+function ledgerNotes(c, ledger) {
+  const span = 2 * ledger + 1, out = [];
+  for (let n = CLEFS[c].bottom - span; n <= CLEFS[c].top + span; n++) out.push(n);
+  return out;
+}
 let cfg = { ...DEFAULTS, ...load(CFG_KEY, {}) };
 const NEEDS_MIC = t => t === 'sing' || t === 'rhythm';
 cfg.types = (cfg.types || []).filter(t => TYPES[t] && (!NEEDS_MIC(t) || CAN_SING));
 if (!cfg.types.length) cfg.types = DEFAULTS.types.slice();
 cfg.clefs = (cfg.clefs || []).filter(c => CLEFS[c]);
 if (!cfg.clefs.length) cfg.clefs = DEFAULTS.clefs.slice();
-for (const k of ['rfigs', 'rrests', 'rnotes', 'rmeters']) if (!Array.isArray(cfg[k])) cfg[k] = DEFAULTS[k].slice();
+for (const k of ['rfigs', 'rrests', 'rmeters']) if (!Array.isArray(cfg[k])) cfg[k] = DEFAULTS[k].slice();
 if (!['both', 'visual', 'off'].includes(cfg.metro)) cfg.metro = 'both';
-delete cfg.rlevel;
+if (cfg.octave === 'low' || cfg.octave === 'low2') cfg.octave = 'grave';   // opciones antiguas
+if (!['any', 'grave', 'aguda', 'exact'].includes(cfg.octave)) cfg.octave = 'any';
+// Notas elegidas por clave. Si no hay, las del pentagrama más las líneas adicionales de antes (por defecto, hasta 1)
+if (!cfg.notes || typeof cfg.notes !== 'object') cfg.notes = {};
+for (const c of Object.keys(CLEFS)) {
+  const [lo, hi] = noteSpan(c);
+  if (!Array.isArray(cfg.notes[c])) cfg.notes[c] = ledgerNotes(c, cfg.ledger ?? 1);
+  cfg.notes[c] = cfg.notes[c].filter(n => Number.isInteger(n) && n >= lo && n <= hi);
+}
+delete cfg.rlevel; delete cfg.ledger; delete cfg.rnotes;
 let game = load(GAME_KEY, null);
 if (!game || game.v !== 5 || !Array.isArray(game.cards) || game.cards.some(c => (c.type === 'chain' && !c.c) || (c.type === 'rhythm' && !c.ts))) game = null;
 let records = load(REC_KEY, {});
@@ -739,8 +754,16 @@ function fmt(n) { return n.toLocaleString('es-ES'); }
 function fmtTime(ms) { const s = Math.round(ms / 1000), m = Math.floor(s / 60); return m ? `${m} min ${s % 60} s` : `${s} s`; }
 function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 function dirs() { return cfg.dir === 'up' ? [1] : cfg.dir === 'down' ? [-1] : [1, -1]; }
-function rangeOf(c) { const span = 2 * cfg.ledger + 1; return [CLEFS[c].bottom - span, CLEFS[c].top + span]; }
-const midiOf = n => 12 * (Math.floor(n / 7) + 1) + SEMIS[mod7(n)];
+const notesOf = c => cfg.notes[c].slice().sort((a, b) => a - b);
+// Dónde está una nota respecto al pentagrama, para las casillas
+function placeOf(c, n) {
+  const p = n - CLEFS[c].bottom;
+  if (p >= 0 && p <= 8) return p % 2 ? `${(p + 1) / 2}.º espacio` : `${p / 2 + 1}.ª línea`;
+  if (p === -1) return 'debajo';
+  if (p === 9) return 'encima';
+  if (p < 0) return p % 2 ? `bajo ${(-p - 1) / 2}.ª ad.` : `${-p / 2}.ª ad. ↓`;
+  return (p - 8) % 2 ? `sobre ${(p - 9) / 2}.ª ad.` : `${(p - 8) / 2}.ª ad. ↑`;
+}const midiOf = n => 12 * (Math.floor(n / 7) + 1) + SEMIS[mod7(n)];
 const listTypes = types => types.map(t => TYPES[t]).join(', ').replace(/, ([^,]*)$/, ' y $1');
 const usesStaff = types => types.includes('read') || types.includes('sing') || types.includes('chain');
 
@@ -794,12 +817,29 @@ function comfy(n) {
   return m;
 }
 function playNote(n) { if (cfg.sound === 'on') playMidi(comfy(n)); }
-// La referencia suena siempre en su octava normal (aunque se exija cantarla una octava más grave)
-const singMidi = n => comfy(n);
-// Octava exigida: cuántos semitonos por debajo de lo escrito hay que cantar (null = cualquier octava)
-const OCT_SHIFT = { exact: 0, low: 12, low2: 24 };
-const octShift = () => OCT_SHIFT[cfg.octave] ?? null;
-const OCT_TEXT = { exact: 'va en la octava escrita', low: 'va una octava más grave', low2: 'va dos octavas más grave' };
+// Registro cómodo de cada voz (MIDI): grave Sol2–Fa4, aguda Sol3–Fa5
+const VOICES = { grave: [43, 65], aguda: [55, 77] };
+// Octava exigida para una ficha: cuántos semitonos por debajo de lo escrito hay que cantar (null = cualquier octava).
+// Con la voz elegida, toda la ficha se mueve las mismas octavas: las que dejan sus notas dentro del registro
+// (y, si hay empate, las habituales para esa clave: la clave de Sol, una octava más grave para la voz grave).
+function octShift(card = current()) {
+  if (cfg.octave === 'exact') return 0;
+  const v = VOICES[cfg.octave];
+  if (!v || !card) return null;
+  const mid = (v[0] + v[1]) / 2, clef = CLEFS[card.c] || CLEFS.treble;
+  const base = Math.round((midiOf(Math.round((clef.bottom + clef.top) / 2)) - mid) / 12);
+  const notes = (card.notes || []).map(midiOf);
+  const out = k => notes.reduce((a, m) => a + Math.max(0, v[0] - (m - 12 * k), (m - 12 * k) - v[1]), 0);
+  let best = base;
+  for (const k of [base, base - 1, base + 1, base - 2, base + 2]) if (out(k) < out(best)) best = k;
+  return 12 * best;
+}
+// La nota de ejemplo: con la voz elegida, justo donde hay que cantarla; si no, la de siempre
+function singMidi(n) {
+  const sh = VOICES[cfg.octave] ? octShift() : null;
+  return sh === null ? comfy(n) : midiOf(n) - sh;
+}
+const OCT_TEXT = { exact: 'va en la octava escrita', grave: 'va en la octava que suena', aguda: 'va en la octava que suena' };
 
 // ---------- Micrófono y detección de tono ----------
 let mic = null;
@@ -856,21 +896,16 @@ function detectPitch() {
 
 // ---------- Mazo ----------
 // Cada ficha tiene su tipo, "notes" (las que se dibujan o recitan) y "ask" (las que hay que nombrar o cantar, en orden)
-// Figuras del solfeo (duración en negras) y notas disponibles en clave de Sol (índice diatónico: Do4 = 28)
+// Figuras del solfeo (duración en negras)
 const FIGS = [['w', 4, 'Redonda'], ['h', 2, 'Blanca'], ['q', 1, 'Negra'], ['8', 0.5, 'Corchea'], ['16', 0.25, 'Semicorchea']];
 const FIG_DUR = Object.fromEntries(FIGS.map(([k, d]) => [k, d]));
 const VF_DUR = { 4: 'w', 2: 'h', 1: 'q', 0.5: '8', 0.25: '16' };
-const RNOTES = [
-  [28, 'Do', 'línea adicional'], [29, 'Re', 'debajo'], [30, 'Mi', '1.ª línea'], [31, 'Fa', '1.er espacio'],
-  [32, 'Sol', '2.ª línea'], [33, 'La', '2.º espacio'], [34, 'Si', '3.ª línea'], [35, 'Do', '3.er espacio'],
-  [36, 'Re', '4.ª línea'], [37, 'Mi', '4.º espacio'], [38, 'Fa', '5.ª línea'], [39, 'Sol', 'encima'],
-];
 const METERS = [2, 3, 4], BARS = { 2: 4, 3: 3, 4: 2 };
 // Unos ocho pulsos al azar (cuatro compases de 2/4, tres de 3/4 o dos de 4/4) con las figuras, silencios, notas y compases elegidos.
 // Cada evento: { n (null = silencio), b (pulso de inicio, en negras), d (duración en negras) }
 function makeRhythm() {
   const ts = pick(cfg.rmeters.length ? cfg.rmeters : [4]), bars = BARS[ts];
-  const pool = (cfg.rnotes.length ? cfg.rnotes : [30, 32]).slice().sort((a, b) => a - b);
+  const pool = notesOf('treble').length ? notesOf('treble') : [30, 32];
   const figs = cfg.rfigs.map(k => FIG_DUR[k]), rests = cfg.rrests.map(k => FIG_DUR[k]);
   const ev = [];
   let prev = null, lastRest = false;
@@ -922,15 +957,23 @@ function makeCard(type) {
   if (type === 'chain') {
     // Notas seguidas de la escala en el pentagrama: por grados, o saltando una (solo líneas o solo espacios)
     const k = cfg.step === 'thirds' ? 2 : cfg.step === 'mixed' ? pick([1, 2]) : 1;
-    const c = pick(cfg.clefs), [lo, hi] = rangeOf(c), d = pick(dirs());
-    const len = Math.min(rand(Math.min(3, cfg.len), cfg.len), Math.floor((hi - lo) / k) + 1);   // que quepa en el pentagrama
-    const span = k * (len - 1);
-    const first = d > 0 ? rand(lo, hi - span) : rand(lo + span, hi);
-    const notes = Array.from({ length: len }, (_, i) => first + d * k * i);
-    return { type, c, d, k, notes, ask: notes };
+    const c = pick(cfg.clefs), pool = notesOf(c), has = new Set(pool), d = pick(dirs());
+    // La cadena más larga posible (hasta la pedida) con todas sus notas entre las elegidas
+    const ks = cfg.step === 'mixed' ? [k, 3 - k] : [k];
+    for (let len = rand(Math.min(3, cfg.len), cfg.len); len >= 2; len--) for (const kk of ks) {
+      const starts = pool.filter(f => Array.from({ length: len }, (_, i) => f + d * kk * i).every(n => has.has(n)));
+      if (starts.length) {
+        const first = pick(starts), notes = Array.from({ length: len }, (_, i) => first + d * kk * i);
+        return { type, c, d, k: kk, notes, ask: notes };
+      }
+    }
+    // Notas sueltas que no forman escala: se recorren las elegidas en orden
+    const seq = d > 0 ? pool : pool.slice().reverse();
+    const len = Math.min(seq.length, rand(Math.min(3, cfg.len), cfg.len)), at = rand(0, seq.length - len);
+    const notes = seq.slice(at, at + len);
+    return { type, c, d, k: 1, notes, ask: notes };
   }
-  const c = pick(cfg.clefs), [lo, hi] = rangeOf(c);
-  const n = rand(lo, hi);
+  const c = pick(cfg.clefs), n = pick(notesOf(c));
   return { type, c, notes: [n], ask: [n] };
 }
 const keyOf = card => [card.type, card.c || '', card.notes.join('.')].join(':');
@@ -962,8 +1005,8 @@ function signature(c = cfg) {
   const types = c.types.slice().sort();
   const parts = [types.join('+'), c.size];
   if (types.includes('chain')) parts.push(c.dir, c.len, c.step);
-  if (usesStaff(types)) parts.push(c.clefs.slice().sort().join('+'), c.ledger);
-  if (types.includes('rhythm')) parts.push(c.rfigs.join(''), c.rrests.join(''), c.rnotes.join('.'), c.rmeters.join(''), c.bpm, c.metro);
+  if (usesStaff(types)) parts.push(c.clefs.slice().sort().map(k => k + ':' + c.notes[k].slice().sort((a, b) => a - b).join('.')).join('+'));
+  if (types.includes('rhythm')) parts.push(c.rfigs.join(''), c.rrests.join(''), c.notes.treble.slice().sort((a, b) => a - b).join('.'), c.rmeters.join(''), c.bpm, c.metro);
   if (types.includes('rhythm') || types.includes('sing')) parts.push(c.tune, c.octave);
   return parts.join('|');
 }
@@ -1225,7 +1268,7 @@ function noteOk(n, sung, type = current().type) {
   const pc = ((Math.round(sung) % 12) + 12) % 12;
   if (!pcOk(n, pc, type)) return false;
   if (octShift() === null || (cfg.tune === 'ritmo' && type === 'rhythm')) return true;
-  return Math.abs(sung - (midiOf(n) - octShift())) <= 6;   // la nota correcta, en la octava exigida
+  return Math.abs(sung - (midiOf(n) - octShift())) <= 6;   // la nota correcta, en la octava exigida para la ficha
 }
 function pcOk(n, pc, type = current().type) {
   const tune = type === 'sing' && cfg.tune === 'ritmo' ? 'flexible' : cfg.tune;   // en Entonar siempre se mira el tono
@@ -1744,6 +1787,7 @@ function renderHome() {
     if (NEEDS_MIC(r.value)) { r.disabled = !CAN_SING; r.closest('.mode').classList.toggle('off', !CAN_SING); }
   });
   document.querySelectorAll('.opt-staff').forEach(el => el.hidden = !usesStaff(cfg.types));
+  renderNotePicks();
   document.querySelectorAll('.opt-chain').forEach(el => el.hidden = !cfg.types.includes('chain'));
   document.querySelectorAll('.opt-answer').forEach(el => el.hidden = !cfg.types.some(t => t === 'read' || t === 'chain'));
   document.querySelectorAll('.opt-rhythm').forEach(el => el.hidden = !cfg.types.includes('rhythm'));
@@ -1756,8 +1800,10 @@ function showMsg(t) { $('msg').textContent = t; $('msg').hidden = !t; }
 
 $('start').addEventListener('click', () => {
   if (usesStaff(cfg.types) && !cfg.clefs.length) { showMsg('Elige al menos una clave.'); return; }
-  if (cfg.types.includes('rhythm') && (!cfg.rfigs.length || !cfg.rnotes.length || !cfg.rmeters.length)) {
-    showMsg('Para el solfeo elige al menos una figura, una nota y un compás.'); return;
+  const empty = usesStaff(cfg.types) && cfg.clefs.find(c => !cfg.notes[c].length);
+  if (empty) { showMsg(`Elige al menos una nota en ${CLEFS[empty].long}.`); return; }
+  if (cfg.types.includes('rhythm') && (!cfg.rfigs.length || !cfg.notes.treble.length || !cfg.rmeters.length)) {
+    showMsg('Para el solfeo elige al menos una figura, un compás y una nota en clave de Sol.'); return;
   }
   showMsg('');
   newGame();
@@ -1888,9 +1934,40 @@ function checkGroup(id, key, items) {
 }
 checkGroup('r-figs', 'rfigs', FIGS.map(([k, , name]) => [k, name]));
 checkGroup('r-rests', 'rrests', FIGS.map(([k, , name]) => [k, 'De ' + name.toLowerCase()]));
-checkGroup('r-notes', 'rnotes', RNOTES.map(([n, name, where]) => [n, `${name} <span class="hint">(${where})</span>`]));
+// Notas de cada clave: casillas de la más aguda a la más grave, con atajos
+const notesOpen = {};
+const PRESETS = [['Solo pentagrama', 0], ['Hasta 1 línea ad.', 1], ['Hasta 2', 2], ['Hasta 3', 3], ['Ninguna', -1]];
+const noteRange = ns => !ns.length ? 'ninguna nota' : ns.length === 1 ? '1 nota' : `${ns.length} notas`;
+function renderNotePicks() {
+  const clefs = Object.keys(CLEFS).filter(c => (usesStaff(cfg.types) && cfg.clefs.includes(c)) || (c === 'treble' && cfg.types.includes('rhythm')));
+  document.querySelectorAll('.opt-notes').forEach(el => el.hidden = !clefs.length);
+  $('note-picks').innerHTML = clefs.map(c => {
+    const [lo, hi] = noteSpan(c), list = [];
+    for (let n = hi; n >= lo; n--) list.push(n);
+    const half = Math.ceil(list.length / 2);
+    return `<details class="note-clef" data-clef="${c}" ${notesOpen[c] ? 'open' : ''}>
+      <summary>${CLEFS[c].long.charAt(0).toUpperCase() + CLEFS[c].long.slice(1)} <span class="hint">(${noteRange(cfg.notes[c])})</span></summary>
+      <div class="presets">${PRESETS.map(([t, l]) => `<button type="button" data-ledger="${l}">${t}</button>`).join('')}</div>
+      <div class="cols">${[list.slice(0, half), list.slice(half)].map(col => `<div class="checks">${col.map(n =>
+        `<label><input type="checkbox" value="${n}" ${cfg.notes[c].includes(n) ? 'checked' : ''}> ${nameOf(n)} <span class="hint">${placeOf(c, n)}</span></label>`).join('')}</div>`).join('')}</div>
+    </details>`;
+  }).join('');
+}
+$('note-picks').addEventListener('toggle', e => { const d = e.target.closest('.note-clef'); if (d) notesOpen[d.dataset.clef] = d.open; }, true);
+$('note-picks').addEventListener('change', e => {
+  const d = e.target.closest('.note-clef');
+  cfg.notes[d.dataset.clef] = [...d.querySelectorAll('input:checked')].map(i => +i.value);
+  saveCfg(); renderHome();
+});
+$('note-picks').addEventListener('click', e => {
+  const b = e.target.closest('button[data-ledger]');
+  if (!b) return;
+  const c = b.closest('.note-clef').dataset.clef, l = +b.dataset.ledger;
+  cfg.notes[c] = l < 0 ? [] : ledgerNotes(c, l);
+  saveCfg(); renderHome();
+});
 checkGroup('r-meters', 'rmeters', METERS.map(m => [m, `${m}/4`]));
-for (const [id, key, num] of [['opt-ledger', 'ledger', true], ['opt-dir', 'dir'], ['opt-len', 'len', true], ['opt-names', 'names'], ['opt-sound', 'sound'], ['opt-metro', 'metro'], ['opt-bpm', 'bpm', true], ['opt-tune', 'tune'], ['opt-step', 'step'], ['opt-octave', 'octave']]) {
+for (const [id, key, num] of [['opt-dir', 'dir'], ['opt-len', 'len', true], ['opt-names', 'names'], ['opt-sound', 'sound'], ['opt-metro', 'metro'], ['opt-bpm', 'bpm', true], ['opt-tune', 'tune'], ['opt-step', 'step'], ['opt-octave', 'octave']]) {
   $(id).value = cfg[key];
   $(id).addEventListener('change', e => { cfg[key] = num ? +e.target.value : e.target.value; saveCfg(); renderHome(); });
 }

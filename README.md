@@ -11,7 +11,7 @@ Practica la lectura de notas, la escala y la entonación con un mazo de fichas: 
 - **Solfeo con metrónomo:** unos ocho pulsos (cuatro compases de 2/4, tres de 3/4 o dos de 4/4) generados con las figuras (de redonda a semicorchea), silencios, notas y compases (2/4, 3/4, 4/4) que elijas. Tras un compás de cuenta, entona cada nota a tempo y calla en los silencios. El metrónomo puede ser sonoro y visual, solo visual o desactivarse.
 - **Entonar:** suena la nota de la ficha y la cantas; el micrófono comprueba si es la correcta.
 
-Un mazo puede mezclar varios ejercicios: las fichas se reparten a partes iguales entre los elegidos. Claves de Sol, Fa, Do en 3.ª y Do en 4.ª, con líneas adicionales opcionales. Puntuación por aciertos y rapidez, récords y resultado para compartir por WhatsApp.
+Un mazo puede mezclar varios ejercicios: las fichas se reparten a partes iguales entre los elegidos. Claves de Sol, Fa, Do en 3.ª y Do en 4.ª, eligiendo qué notas entran en cada clave (hasta tres líneas adicionales). Al cantar se puede exigir la octava de tu voz (grave o aguda): cada ficha se canta donde mejor cae en tu registro. Puntuación por aciertos y rapidez, récords y resultado para compartir por WhatsApp.
 
 ## Notas
 

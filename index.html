@@ -952,8 +952,17 @@ function makeRhythm() {
   const pitched = ev.filter(e => e.n !== null).map(e => e.n);
   return { type: 'rhythm', c: 'treble', ts, bars, bpm: cfg.bpm, ev, notes: pitched, ask: pitched };
 }
-// Lectura y escala se escriben con blancas, negras y corcheas al azar (para leer de un vistazo cualquier figura)
-const figs = len => Array.from({ length: len }, () => pick(['h', 'q', '8']));
+// Lectura y escala se escriben con blancas, negras y corcheas al azar (para leer de un vistazo cualquier figura).
+// En la escala las corcheas van siempre de dos en dos, unidas con su barra
+function figs(len) {
+  if (len === 1) return [pick(['h', 'q', '8'])];
+  const out = [];
+  while (out.length < len) {
+    const f = pick(len - out.length >= 2 ? ['h', 'q', '88'] : ['h', 'q']);
+    out.push(...(f === '88' ? ['8', '8'] : [f]));
+  }
+  return out;
+}
 function makeCard(type) {
   if (type === 'rhythm') return makeRhythm();
   if (type === 'chain') {
@@ -1036,12 +1045,12 @@ function drawStaff(el, clef, notes, W) {
     note.setLedgerLineStyle({ fillStyle: ink, strokeStyle: ink });
     return note;
   });
-  // Corcheas seguidas, unidas con barra de dos en dos (o de tres o cuatro si van seguidas)
+  // Corcheas seguidas, unidas con barra de dos en dos
   const beams = [];
   for (let i = 0; i < notes.length;) {
     let j = i;
     while (j < notes.length && notes[j].d === '8') j++;
-    if (j - i >= 2) for (let a = i; a < j; a += 4) { const g = tickables.slice(a, Math.min(j, a + 4)); if (g.length >= 2) beams.push(new VF.Beam(g)); }
+    if (j - i >= 2) for (let a = i; a + 1 < j; a += 2) beams.push(new VF.Beam(tickables.slice(a, a + 2)));
     i = Math.max(j, i + 1);
   }
   // Todas ocupan lo mismo al repartirlas, sea blanca, negra o corchea: notas equidistantes

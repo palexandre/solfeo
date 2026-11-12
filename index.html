@@ -952,6 +952,8 @@ function makeRhythm() {
   const pitched = ev.filter(e => e.n !== null).map(e => e.n);
   return { type: 'rhythm', c: 'treble', ts, bars, bpm: cfg.bpm, ev, notes: pitched, ask: pitched };
 }
+// Lectura y escala se escriben con blancas y negras al azar
+const figs = len => Array.from({ length: len }, () => pick(['h', 'q']));
 function makeCard(type) {
   if (type === 'rhythm') return makeRhythm();
   if (type === 'chain') {
@@ -964,17 +966,17 @@ function makeCard(type) {
       const starts = pool.filter(f => Array.from({ length: len }, (_, i) => f + d * kk * i).every(n => has.has(n)));
       if (starts.length) {
         const first = pick(starts), notes = Array.from({ length: len }, (_, i) => first + d * kk * i);
-        return { type, c, d, k: kk, notes, ask: notes };
+        return { type, c, d, k: kk, notes, ask: notes, durs: figs(len) };
       }
     }
     // Notas sueltas que no forman escala: se recorren las elegidas en orden
     const seq = d > 0 ? pool : pool.slice().reverse();
     const len = Math.min(seq.length, rand(Math.min(3, cfg.len), cfg.len)), at = rand(0, seq.length - len);
     const notes = seq.slice(at, at + len);
-    return { type, c, d, k: 1, notes, ask: notes };
+    return { type, c, d, k: 1, notes, ask: notes, durs: figs(len) };
   }
   const c = pick(cfg.clefs), n = pick(notesOf(c));
-  return { type, c, notes: [n], ask: [n] };
+  return { type, c, notes: [n], ask: [n], ...(type === 'read' ? { durs: figs(1) } : {}) };
 }
 const keyOf = card => [card.type, card.c || '', card.notes.join('.')].join(':');
 // Reparte las fichas a partes iguales entre los tipos elegidos (el resto, al azar)
@@ -1014,7 +1016,7 @@ function signature(c = cfg) {
 // ---------- Pentagrama ----------
 const H = 170;
 function vfKey(n) { return VF_STEP[mod7(n)] + '/' + Math.floor(n / 7); }
-// notes: [{ n, color }]
+// notes: [{ n, color, d }]  (d: figura de VexFlow; redonda si no se indica)
 function drawStaff(el, clef, notes, W) {
   W = W || 300;
   el.innerHTML = '';
@@ -1027,14 +1029,16 @@ function drawStaff(el, clef, notes, W) {
   const stave = new VF.Stave(10, 35, W - 20, { fill_style: ink });
   stave.addClef(clef);
   stave.setContext(ctx).draw();
-  const tickables = notes.map(({ n, color }) => {
-    const note = new VF.StaveNote({ clef, keys: [vfKey(n)], duration: 'w', align_center: notes.length === 1 });
+  const tickables = notes.map(({ n, color, d }) => {
+    const note = new VF.StaveNote({ clef, keys: [vfKey(n)], duration: d || 'w', align_center: notes.length === 1, auto_stem: true });
     const c = color || ink;
     note.setStyle({ fillStyle: c, strokeStyle: c });
     note.setLedgerLineStyle({ fillStyle: ink, strokeStyle: ink });
     return note;
   });
-  const voice = new VF.Voice({ num_beats: 4 * notes.length, beat_value: 4 }).addTickables(tickables);
+  // Todas ocupan lo mismo al repartirlas, sea blanca, negra o redonda: notas equidistantes
+  tickables.forEach(t => t.setIntrinsicTicks(VF.RESOLUTION / 4));
+  const voice = new VF.Voice({ num_beats: notes.length, beat_value: 4 }).addTickables(tickables);
   new VF.Formatter().joinVoices([voice]).format([voice], Math.max(20, W - 140));
   voice.draw(ctx, stave);
   const svg = el.querySelector('svg');
@@ -1076,12 +1080,12 @@ function renderCardFace() {
   const staffEl = el.querySelector('.staff');
   if (staffEl && card.type === 'chain') {
     const okC = cssVar('--ok'), badC = cssVar('--bad'), curC = cssVar('--gold');   // la que toca, en dorado
-    const notes = card.notes.map((n, i) => ({ n, color: marks[i] === 'ok' ? okC : marks[i] === 'bad' ? badC : i === step && !locked ? curC : null }));
+    const notes = card.notes.map((n, i) => ({ n, d: card.durs?.[i], color: marks[i] === 'ok' ? okC : marks[i] === 'bad' ? badC : i === step && !locked ? curC : null }));
     drawStaff(staffEl, card.c, notes, 200 + notes.length * 40);
   } else if (staffEl) {
     const m = marks[0];
     const color = m === 'ok' ? cssVar('--ok') : m === 'bad' ? cssVar('--bad') : null;
-    const geo = drawStaff(staffEl, card.c, [{ n: card.notes[0], color }]);
+    const geo = drawStaff(staffEl, card.c, [{ n: card.notes[0], color, d: card.durs?.[0] }]);
     if (card.type === 'sing' && geo) addPitchBall(geo);
   }
 }
@@ -1707,8 +1711,8 @@ function showResults() {
   $('hard').querySelectorAll('.mini').forEach((m, i) => {
     const c = hard.filter(h => h.c.c)[i].c;
     if (c.type === 'rhythm') { m.classList.add('mini-wide'); drawRhythm(m, c, []); }
-    else if (c.type === 'chain') { m.classList.add('mini-wide'); drawStaff(m, c.c, c.notes.map(n => ({ n })), 200 + c.notes.length * 40); }
-    else drawStaff(m, c.c, [{ n: c.notes[0] }], 150);
+    else if (c.type === 'chain') { m.classList.add('mini-wide'); drawStaff(m, c.c, c.notes.map((n, i) => ({ n, d: c.durs?.[i] })), 200 + c.notes.length * 40); }
+    else drawStaff(m, c.c, [{ n: c.notes[0], d: c.durs?.[0] }], 150);
   });
   // El foco va al botón sin desplazar la vista: los resultados se ven desde arriba
   $('again').focus({ preventScroll: true });
